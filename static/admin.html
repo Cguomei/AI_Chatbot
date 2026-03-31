@@ -1,0 +1,1111 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 电商客服 - 管理后台</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Microsoft YaHei', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        /* 顶部导航栏 */
+        .navbar {
+            background: rgba(255, 255, 255, 0.95);
+            padding: 15px 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        /* 加载提示样式 */
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+        }
+        
+        .loading-content {
+            background: white;
+            padding: 40px;
+            border-radius: 15px;
+            text-align: center;
+            max-width: 400px;
+        }
+        
+        .spinner {
+            width: 60px;
+            height: 60px;
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .loading-text {
+            color: #667eea;
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        
+        .loading-subtext {
+            color: #999;
+            font-size: 14px;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #f0f0f0;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 15px;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+        
+        .navbar h1 {
+            color: #667eea;
+            font-size: 24px;
+        }
+        
+        .nav-links {
+            display: flex;
+            gap: 20px;
+        }
+        
+        .nav-links button {
+            padding: 8px 16px;
+            background: white;
+            border: 2px solid #667eea;
+            color: #667eea;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+        
+        .nav-links button:hover,
+        .nav-links button.active {
+            background: #667eea;
+            color: white;
+        }
+        
+        /* 主容器 */
+        .container {
+            flex: 1;
+            display: grid;
+            grid-template-columns: 400px 1fr;
+            gap: 20px;
+            padding: 20px;
+            max-width: 1600px;
+            margin: 0 auto;
+            width: 100%;
+        }
+        
+        /* 左侧面板 */
+        .left-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+        
+        .card h3 {
+            color: #667eea;
+            margin-bottom: 15px;
+            border-bottom: 2px solid #f0f0f0;
+            padding-bottom: 10px;
+        }
+        
+        /* 聊天区域 */
+        .chat-container {
+            height: 400px;
+            overflow-y: auto;
+            padding: 15px;
+            background: #f5f5f5;
+            border-radius: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .message {
+            margin-bottom: 15px;
+            display: flex;
+            align-items: flex-start;
+        }
+        
+        .message.user {
+            justify-content: flex-end;
+        }
+        
+        .message-content {
+            max-width: 75%;
+            padding: 10px 15px;
+            border-radius: 18px;
+            word-wrap: break-word;
+        }
+        
+        .message.bot .message-content {
+            background: white;
+            border-bottom-left-radius: 4px;
+        }
+        
+        .message.user .message-content {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-bottom-right-radius: 4px;
+        }
+        
+        .input-area {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .input-area input {
+            flex: 1;
+            padding: 12px 20px;
+            border: 2px solid #e0e0e0;
+            border-radius: 25px;
+            outline: none;
+        }
+        
+        .input-area input:focus {
+            border-color: #667eea;
+        }
+        
+        .btn {
+            padding: 12px 24px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: transform 0.2s;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+        
+        /* 模型选择器 */
+        .model-selector {
+            margin-bottom: 15px;
+        }
+        
+        .model-selector select {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+        
+        /* 统计信息 */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .stat-item {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+        }
+        
+        .stat-number {
+            font-size: 24px;
+            font-weight: bold;
+            color: #667eea;
+        }
+        
+        .stat-label {
+            font-size: 12px;
+            color: #666;
+            margin-top: 5px;
+        }
+        
+        /* 右侧面板 */
+        .right-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        
+        /* 选项卡 */
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .tab-btn {
+            padding: 10px 20px;
+            background: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+        
+        .tab-btn.active {
+            background: #667eea;
+            color: white;
+        }
+        
+        /* 日志表格 */
+        .log-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        
+        .log-table th {
+            background: #667eea;
+            color: white;
+            padding: 15px;
+            text-align: left;
+        }
+        
+        .log-table td {
+            padding: 12px;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        
+        .log-table tr:hover {
+            background: #f8f9fa;
+        }
+        
+        .badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        
+        .badge-good {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .badge-bad {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .badge-normal {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+        
+        /* 反馈按钮 */
+        .feedback-btns {
+            display: flex;
+            gap: 5px;
+        }
+        
+        .feedback-btn {
+            padding: 4px 8px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        
+        .feedback-btn.good {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .feedback-btn.bad {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        /* 知识库表单 */
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            color: #555;
+            font-weight: bold;
+        }
+        
+        .form-group input,
+        .form-group textarea {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+        
+        .form-group textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+        
+        /* 滚动条样式 */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 4px;
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: #667eea;
+            border-radius: 4px;
+        }
+        
+        /* 加载动画 */
+        .typing-indicator {
+            display: none;
+            padding: 10px 15px;
+            background: white;
+            border-radius: 18px;
+            width: fit-content;
+        }
+        
+        .typing-indicator span {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            background: #667eea;
+            border-radius: 50%;
+            margin: 0 2px;
+            animation: bounce 1.4s infinite ease-in-out both;
+        }
+        
+        .typing-indicator span:nth-child(1) { animation-delay: -0.32s; }
+        .typing-indicator span:nth-child(2) { animation-delay: -0.16s; }
+        
+        @keyframes bounce {
+            0%, 80%, 100% { transform: scale(0); }
+            40% { transform: scale(1); }
+        }
+        
+        /* 隐藏/显示面板 */
+        .panel {
+            display: none;
+        }
+        
+        .panel.active {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <!-- 顶部导航栏 -->
+    <div class="navbar">
+        <h1>🤖 AI 电商客服管理后台</h1>
+        <div class="nav-links">
+            <button onclick="switchView('chat')" class="active" id="view-chat">💬 对话测试</button>
+            <button onclick="switchView('logs')" id="view-logs">📊 对话日志</button>
+            <button onclick="switchView('knowledge')" id="view-knowledge">📚 知识库管理</button>
+            <button onclick="switchView('badcases')" id="view-badcases">⚠️ 坏案例</button>
+        </div>
+    </div>
+    
+    <!-- 加载提示层 -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-content">
+            <div class="spinner"></div>
+            <div class="loading-text" id="loadingText">正在初始化...</div>
+            <div class="loading-subtext" id="loadingSubtext">请稍候</div>
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 主容器 -->
+    <div class="container">
+        <!-- 左侧面板 -->
+        <div class="left-panel">
+            <!-- 对话卡片 -->
+            <div class="card">
+                <h3>🎯 模型配置</h3>
+                <div class="model-selector">
+                    <label for="modelSelect">选择模型：</label>
+                    <select id="modelSelect">
+                        <option value="mock">模拟模式（免费测试）</option>
+                        <option value="deepseek">DeepSeek Chat</option>
+                        <option value="gpt35">GPT-3.5</option>
+                        <option value="qwen">通义千问</option>
+                    </select>
+                </div>
+                
+                <div id="apiKeySection" style="display: none;">
+                    <div class="form-group">
+                        <label>API Key：</label>
+                        <input type="password" id="apiKeyInput" placeholder="请输入 API Key">
+                    </div>
+                </div>
+                
+                <button class="btn" onclick="updateModel()" style="width: 100%; margin-top: 10px;">更新模型配置</button>
+            </div>
+            
+            <!-- 统计卡片 -->
+            <div class="card">
+                <h3>📈 今日统计</h3>
+                <div class="stats-grid">
+                    <div class="stat-item">
+                        <div class="stat-number" id="totalChats">0</div>
+                        <div class="stat-label">总对话数</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-number" id="goodCases">0</div>
+                        <div class="stat-label">好评数</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-number" id="badCases">0</div>
+                        <div class="stat-label">差评数</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-number" id="accuracyRate">0%</div>
+                        <div class="stat-label">准确率</div>
+                    </div>
+                </div>
+                
+                <!-- 新增：坏案例分析 -->
+                <div style="margin-top: 15px; padding: 10px; background: #fff3cd; border-radius: 8px;">
+                    <h4 style="color: #856404; margin-bottom: 10px;">⚠️ 坏案例分析</h4>
+                    <div class="stats-grid">
+                        <div class="stat-item">
+                            <div class="stat-number" id="quickTransferCount">0</div>
+                            <div class="stat-label">快速转人工</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-number" id="offTopicCount">0</div>
+                            <div class="stat-label">偏离主题闲聊</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-number" id="negativeEmotionCount">0</div>
+                            <div class="stat-label">负面情绪</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-number" id="lowConfidenceCount">0</div>
+                            <div class="stat-label">低置信度</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 快速操作 -->
+            <div class="card">
+                <h3>⚡ 快速操作</h3>
+                <button class="btn" onclick="exportLogs()" style="width: 100%; margin-bottom: 10px;">📥 导出日志数据</button>
+                <button class="btn" onclick="clearLogs()" style="width: 100%; background: #dc3545;">🗑️ 清空日志</button>
+            </div>
+        </div>
+        
+        <!-- 右侧面板 -->
+        <div class="right-panel">
+            <!-- 对话测试面板 -->
+            <div class="card panel active" id="panel-chat">
+                <h3>💬 对话测试</h3>
+                <div class="chat-container" id="chatContainer">
+                    <div class="message bot">
+                        <div class="message-content">
+                            您好！我是您的专属客服小助手，很高兴为您服务😊 请问有什么可以帮助您的？
+                        </div>
+                    </div>
+                    <div class="typing-indicator" id="typingIndicator">
+                        <span></span><span></span><span></span>
+                    </div>
+                </div>
+                <div class="input-area">
+                    <input type="text" id="userInput" placeholder="输入您的问题..." onkeypress="handleKeyPress(event)">
+                    <button class="btn" onclick="sendMessage()">发送</button>
+                </div>
+            </div>
+            
+            <!-- 日志面板 -->
+            <div class="card panel" id="panel-logs">
+                <h3>📊 对话日志</h3>
+                <div class="tabs">
+                    <button class="tab-btn active" onclick="filterLogs('all')">全部</button>
+                    <button class="tab-btn" onclick="filterLogs('good')">好评</button>
+                    <button class="tab-btn" onclick="filterLogs('bad')">差评</button>
+                    <button class="tab-btn" onclick="filterLogs('normal')">普通</button>
+                </div>
+                <table class="log-table">
+                    <thead>
+                        <tr>
+                            <th>时间</th>
+                            <th>用户问题</th>
+                            <th>AI 回复</th>
+                            <th>意图</th>
+                            <th>置信度</th>
+                            <th>评价</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="logsTableBody">
+                        <!-- 动态填充 -->
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- 知识库管理面板 -->
+            <div class="card panel" id="panel-knowledge">
+                <h3>📚 添加知识库</h3>
+                <div class="form-group">
+                    <label>问题：</label>
+                    <input type="text" id="faqQuestion" placeholder="例如：什么时候发货？">
+                </div>
+                <div class="form-group">
+                    <label>答案：</label>
+                    <textarea id="faqAnswer" placeholder="例如：我们一般在下单后 24 小时内发货..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label>关键词（用逗号分隔）：</label>
+                    <input type="text" id="faqKeywords" placeholder="发货，配送，快递">
+                </div>
+                <div class="form-group">
+                    <label>分类：</label>
+                    <input type="text" id="faqCategory" placeholder="物流" value="其他">
+                </div>
+                <button class="btn" onclick="addFAQ()" style="width: 100%;">➕ 添加到知识库</button>
+            </div>
+            
+            <!-- 坏案例面板 -->
+            <div class="card panel" id="panel-badcases">
+                <h3>⚠️ 坏案例复盘</h3>
+                <p style="color: #666; margin-bottom: 15px;">这里收集了所有评价为"差"的对话，以及：<span style="color: #dc3545;">快速转人工</span>、<span style="color: #dc3545;">偏离主题闲聊</span>、<span style="color: #dc3545;">负面情绪</span> 的案例。</p>
+                <table class="log-table">
+                    <thead>
+                        <tr>
+                            <th>时间</th>
+                            <th>用户问题</th>
+                            <th>AI 回复</th>
+                            <th>意图</th>
+                            <th>问题类型</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="badCasesTableBody">
+                        <!-- 动态填充 -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:8000/api';
+        let sessionId = null;
+        let currentFilter = 'all';
+        let conversationLogs = [];
+        let isBotReady = false;  // 机器人是否已就绪
+        
+        // 页面加载时初始化
+        window.onload = async function() {
+            sessionId = generateSessionId();
+            
+            // 显示加载提示
+            showLoading('正在连接服务器', '首次加载可能需要 10-20 秒');
+            updateProgress(20);
+            
+            try {
+                // 检查服务是否可用
+                await checkServerHealth();
+                updateProgress(40);
+                
+                // 预加载数据
+                await loadLogsFromAPI();
+                updateProgress(70);
+                
+                // 加载统计数据
+                await updateStatsFromAPI();
+                updateProgress(100);
+                
+                // 隐藏加载提示
+                setTimeout(() => hideLoading(), 500);
+                isBotReady = true;
+                
+            } catch (error) {
+                hideLoading();
+                alert('⚠️ 连接服务器失败，请检查服务是否运行\n错误信息：' + error.message);
+            }
+        };
+        
+        function generateSessionId() {
+            return 'admin_' + Math.random().toString(36).substr(2, 9);
+        }
+        
+        // 切换视图
+        function switchView(viewName) {
+            // 更新按钮状态
+            document.querySelectorAll('.nav-links button').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            document.getElementById(`view-${viewName}`).classList.add('active');
+            
+            // 更新面板显示
+            document.querySelectorAll('.panel').forEach(panel => {
+                panel.classList.remove('active');
+            });
+            document.getElementById(`panel-${viewName}`).classList.add('active');
+            
+            // 如果切换到日志或坏案例，刷新数据
+            if (viewName === 'logs') {
+                renderLogs('all');
+            } else if (viewName === 'badcases') {
+                renderBadCases();
+            }
+        }
+        
+        // 模型选择器显示控制
+        document.getElementById('modelSelect').addEventListener('change', function() {
+            const apiKeySection = document.getElementById('apiKeySection');
+            if (this.value !== 'mock') {
+                apiKeySection.style.display = 'block';
+            } else {
+                apiKeySection.style.display = 'none';
+            }
+        });
+        
+        // 更新模型配置
+        function updateModel() {
+            const model = document.getElementById('modelSelect').value;
+            const apiKey = document.getElementById('apiKeyInput').value;
+            
+            alert(`✅ 模型已更新为：${model}\n（实际项目中这里会调用后端 API 更新配置）`);
+        }
+        
+        // 发送消息
+        async function sendMessage() {
+            const input = document.getElementById('userInput');
+            const message = input.value.trim();
+            
+            if (!message) return;
+            
+            // 检查机器人是否就绪
+            if (!isBotReady) {
+                alert('⏳ 系统正在初始化中，请稍候...');
+                return;
+            }
+            
+            // 添加用户消息
+            addMessage(message, 'user');
+            input.value = '';
+            
+            // 显示正在输入
+            showTyping();
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/chat`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        message: message,
+                        session_id: sessionId
+                    })
+                });
+                
+                const data = await response.json();
+                
+                hideTyping();
+                addMessage(data.response, 'bot');
+                
+                // 记录日志（本地 + 服务器）
+                logConversation(data);
+                
+            } catch (error) {
+                hideTyping();
+                addMessage('抱歉，系统出现错误，请稍后再试~', 'bot');
+                console.error('Error:', error);
+            }
+        }
+        
+        function handleKeyPress(event) {
+            if (event.key === 'Enter') {
+                sendMessage();
+            }
+        }
+        
+        function addMessage(text, type) {
+            const container = document.getElementById('chatContainer');
+            const typingIndicator = document.getElementById('typingIndicator');
+            
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${type}`;
+            
+            const contentDiv = document.createElement('div');
+            contentDiv.className = 'message-content';
+            contentDiv.textContent = text;
+            
+            messageDiv.appendChild(contentDiv);
+            container.insertBefore(messageDiv, typingIndicator);
+            
+            container.scrollTop = container.scrollHeight;
+        }
+        
+        function showTyping() {
+            document.getElementById('typingIndicator').style.display = 'block';
+        }
+        
+        function hideTyping() {
+            document.getElementById('typingIndicator').style.display = 'none';
+        }
+        
+        // 日志相关功能
+        function logConversation(data) {
+            const logEntry = {
+                id: Date.now(),
+                timestamp: new Date().toLocaleString('zh-CN'),
+                question: '',
+                response: data.response,
+                intent: data.intent_cn,
+                confidence: data.confidence,
+                strategy: data.strategy,
+                feedback: 'normal' // good, bad, normal
+            };
+            
+            // 获取最后一条用户消息
+            const messages = document.querySelectorAll('#chatContainer .message.user .message-content');
+            if (messages.length > 0) {
+                logEntry.question = messages[messages.length - 1].textContent;
+            }
+            
+            // 同时保存到本地和服务器
+            conversationLogs.unshift(logEntry);
+            saveLogs();
+            updateStats();
+        }
+        
+        async function loadLogsFromAPI() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/logs?limit=100`);
+                const data = await response.json();
+                
+                if (data.logs && data.logs.length > 0) {
+                    // 转换 API 数据格式
+                    conversationLogs = data.logs.map(log => ({
+                        id: log.id,
+                        timestamp: new Date(log.timestamp).toLocaleString('zh-CN'),
+                        question: log.user_input,
+                        response: log.response,
+                        intent: log.intent,
+                        confidence: log.confidence,
+                        strategy: log.strategy,
+                        feedback: log.feedback || 'normal'
+                    }));
+                    
+                    renderLogs('all');
+                    updateStats();
+                }
+            } catch (error) {
+                console.error('加载日志失败:', error);
+            }
+        }
+        
+        async function updateStatsFromAPI() {
+            try {
+                // 获取基础统计
+                const response = await fetch(`${API_BASE_URL}/logs/statistics`);
+                const data = await response.json();
+                
+                if (data.statistics) {
+                    const stats = data.statistics;
+                    document.getElementById('totalChats').textContent = stats.total || 0;
+                    document.getElementById('goodCases').textContent = stats.good || 0;
+                    document.getElementById('badCases').textContent = stats.bad || 0;
+                    document.getElementById('accuracyRate').textContent = (stats.accuracy || 0) + '%';
+                }
+                
+                // 获取坏案例分析
+                const badAnalysisResponse = await fetch(`${API_BASE_URL}/logs/bad-cases/analysis`);
+                const badAnalysisData = await badAnalysisResponse.json();
+                
+                if (badAnalysisData.analysis) {
+                    const analysis = badAnalysisData.analysis;
+                    document.getElementById('quickTransferCount').textContent = analysis.quick_human_transfer_count || 0;
+                    document.getElementById('offTopicCount').textContent = analysis.off_topic_count || 0;
+                    document.getElementById('negativeEmotionCount').textContent = analysis.negative_emotion_count || 0;
+                    document.getElementById('lowConfidenceCount').textContent = analysis.low_confidence_count || 0;
+                }
+            } catch (error) {
+                console.error('获取统计失败:', error);
+            }
+        }
+        
+        function saveLogs() {
+            localStorage.setItem('conversationLogs', JSON.stringify(conversationLogs));
+        }
+        
+        function loadLogs() {
+            const saved = localStorage.getItem('conversationLogs');
+            if (saved) {
+                conversationLogs = JSON.parse(saved);
+            }
+        }
+        
+        function renderLogs(filter = 'all') {
+            const tbody = document.getElementById('logsTableBody');
+            tbody.innerHTML = '';
+            
+            const filtered = filter === 'all' 
+                ? conversationLogs 
+                : conversationLogs.filter(log => log.feedback === filter);
+            
+            filtered.forEach(log => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${log.timestamp}</td>
+                    <td>${log.question}</td>
+                    <td>${log.response}</td>
+                    <td>${log.intent}</td>
+                    <td>${(log.confidence * 100).toFixed(1)}%</td>
+                    <td>
+                        <span class="badge badge-${log.feedback === 'good' ? 'good' : log.feedback === 'bad' ? 'bad' : 'normal'}">
+                            ${log.feedback === 'good' ? '👍 好' : log.feedback === 'bad' ? '👎 差' : '😐 普通'}
+                        </span>
+                    </td>
+                    <td>
+                        <div class="feedback-btns">
+                            <button class="feedback-btn good" onclick="setFeedback(${log.id}, 'good')">👍</button>
+                            <button class="feedback-btn bad" onclick="setFeedback(${log.id}, 'bad')">👎</button>
+                        </div>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+        
+        function renderBadCases() {
+            const tbody = document.getElementById('badCasesTableBody');
+            tbody.innerHTML = '';
+            
+            const badCases = conversationLogs.filter(log => log.feedback === 'bad' || log.is_off_topic || log.has_negative_emotion || (log.turn_count && log.turn_count <= 2));
+            
+            badCases.forEach(log => {
+                const tr = document.createElement('tr');
+                
+                // 判断问题类型
+                let problemTypes = [];
+                if (log.feedback === 'bad') problemTypes.push('<span class="badge badge-bad">差评</span>');
+                if (log.turn_count && log.turn_count <= 2) problemTypes.push('<span class="badge" style="background: #ffc107; color: #000;">快速转人工</span>');
+                if (log.is_off_topic) problemTypes.push('<span class="badge" style="background: #17a2b8; color: #fff;">偏离主题</span>');
+                if (log.has_negative_emotion) problemTypes.push('<span class="badge" style="background: #dc3545; color: #fff;">负面情绪</span>');
+                
+                tr.innerHTML = `
+                    <td>${log.timestamp}</td>
+                    <td>${log.question}</td>
+                    <td>${log.response}</td>
+                    <td>${log.intent}</td>
+                    <td>${problemTypes.join(' ')}</td>
+                    <td>
+                        <button class="btn" style="padding: 4px 12px; font-size: 12px;" onclick="addToKnowledgeBase('${log.question}')">
+                            ➕ 加入知识库
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+        
+        function setFeedback(id, feedback) {
+            const log = conversationLogs.find(l => l.id === id);
+            if (log) {
+                // 更新本地
+                log.feedback = feedback;
+                saveLogs();
+                renderLogs(currentFilter);
+                updateStats();
+                
+                // 更新服务器
+                fetch(`${API_BASE_URL}/logs/feedback`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        log_id: String(id),
+                        feedback: feedback
+                    })
+                })
+                .then(res => res.json())
+                .then(data => {
+                    console.log('评价已更新:', data);
+                })
+                .catch(err => {
+                    console.error('更新失败:', err);
+                });
+            }
+        }
+        
+        function filterLogs(filter) {
+            currentFilter = filter;
+            
+            // 更新按钮状态
+            document.querySelectorAll('#panel-logs .tab-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+            
+            renderLogs(filter);
+        }
+        
+        function updateStats() {
+            const total = conversationLogs.length;
+            const good = conversationLogs.filter(l => l.feedback === 'good').length;
+            const bad = conversationLogs.filter(l => l.feedback === 'bad').length;
+            const accuracy = total > 0 ? ((good / total) * 100).toFixed(1) : 0;
+            
+            document.getElementById('totalChats').textContent = total;
+            document.getElementById('goodCases').textContent = good;
+            document.getElementById('badCases').textContent = bad;
+            document.getElementById('accuracyRate').textContent = accuracy + '%';
+        }
+        
+        // 知识库相关功能
+        function addFAQ() {
+            const question = document.getElementById('faqQuestion').value;
+            const answer = document.getElementById('faqAnswer').value;
+            const keywords = document.getElementById('faqKeywords').value.split(',').map(k => k.trim());
+            const category = document.getElementById('faqCategory').value;
+            
+            if (!question || !answer) {
+                alert('请填写问题和答案');
+                return;
+            }
+            
+            fetch(`${API_BASE_URL}/knowledge/faq`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    question: question,
+                    answer: answer,
+                    keywords: keywords,
+                    category: category
+                })
+            })
+            .then(res => res.json())
+            .then(data => {
+                alert(`✅ ${data.message}`);
+                // 清空表单
+                document.getElementById('faqQuestion').value = '';
+                document.getElementById('faqAnswer').value = '';
+                document.getElementById('faqKeywords').value = '';
+            })
+            .catch(err => {
+                alert('❌ 添加失败：' + err);
+            });
+        }
+        
+        function addToKnowledgeBase(question) {
+            document.getElementById('faqQuestion').value = question;
+            switchView('knowledge');
+            alert('💡 问题已复制到表单，请补充答案和关键词');
+        }
+        
+        // 导出功能
+        function exportLogs() {
+            const dataStr = JSON.stringify(conversationLogs, null, 2);
+            const dataBlob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(dataBlob);
+            
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `conversation_logs_${new Date().getTime()}.json`;
+            link.click();
+            
+            alert('✅ 日志已导出');
+        }
+        
+        function clearLogs() {
+            if (confirm('确定要清空所有日志吗？此操作不可恢复！')) {
+                conversationLogs = [];
+                saveLogs();
+                updateStats();
+                renderLogs('all');
+                alert('✅ 日志已清空');
+            }
+        }
+        
+        // 加载提示控制
+        function showLoading(text, subtext) {
+            document.getElementById('loadingText').textContent = text;
+            document.getElementById('loadingSubtext').textContent = subtext;
+            document.getElementById('loadingOverlay').style.display = 'flex';
+        }
+        
+        function hideLoading() {
+            document.getElementById('loadingOverlay').style.display = 'none';
+            updateProgress(0);
+        }
+        
+        function updateProgress(percent) {
+            document.getElementById('progressFill').style.width = percent + '%';
+        }
+        
+        // 健康检查
+        async function checkServerHealth() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/health`);
+                if (!response.ok) {
+                    throw new Error('服务响应异常');
+                }
+            } catch (error) {
+                throw new Error('无法连接到服务器，请检查服务是否运行');
+            }
+        }
+    </script>
+</body>
+</html>
