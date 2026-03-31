@@ -1,5 +1,169 @@
 # 📝 AI 智能电商客服系统 - 更新日志
 
+## v1.2.0 (2026-03-31) - Ollama 本地模型支持与界面优化
+
+### ✨ 新增功能
+
+#### 1. Ollama 本地模型集成
+- ✅ 新增 `OllamaClient` 类，支持本地大模型调用
+- ✅ 支持 qwen2.5、llama2、gemma 等开源模型
+- ✅ 本地模型与云端 API 无缝切换
+- ✅ 完整的错误处理和超时控制
+
+**配置方式**:
+```env
+OLLAMA_BASE_URL=http://localhost:11434
+OLLAMA_MODEL=qwen2.5:1.5b
+USE_OLLAMA=true
+```
+
+#### 2. 三模式对话界面
+- **用户模式**：简洁界面，仅显示对话内容
+- **客服模式**：显示会话 ID、响应时间、意图识别、置信度
+- **开发者模式**：完整调试信息（意图标签、响应策略、原始 API 数据 JSON）
+
+**界面地址**:
+- 用户/客服模式：http://localhost:8000/static/index.html
+- 开发者控制台：http://localhost:8000/static/console.html
+
+#### 3. 辅助工具
+- ✅ `scripts/test_ollama.py` - Ollama 本地模型测试脚本
+- ✅ `setup_ollama.bat` - Windows 一键配置助手
+- ✅ `OLLAMA_CONFIG.txt` - 快速配置指南
+
+### 🔧 技术改进
+
+#### 1. LLM 模块增强 (`core/llm.py`)
+```python
+# 新增模型选择逻辑
+def get_llm_client(use_mock=False, use_ollama=None):
+    if use_ollama or os.getenv("USE_OLLAMA") == "true":
+        return OllamaClient()  # 本地模型
+    elif use_mock or not os.getenv("DEEPSEEK_API_KEY"):
+        return MockLLMClient()  # 模拟模式
+    else:
+        return DeepSeekClient()  # 云端 API
+```
+
+#### 2. 界面交互优化
+- ✅ 模式切换时动态更新信息面板 HTML
+- ✅ 开发者模式显示完整 JSON 响应数据
+- ✅ 客服模式显示基础调试信息
+- ✅ 模式切换提示弹窗，明确当前状态
+
+#### 3. 文档完善
+- ✅ 更新 `README.md` - 添加 Ollama 配置说明
+- ✅ 更新 `TECHNICAL_DOCS.md` - 补充 LLM 模块详细说明
+- ✅ 更新 `MAINTENANCE_GUIDE.md` - 添加 Ollama 日常检查
+- ✅ 新增 `OLLAMA_CONFIG.txt` - 快速配置指南
+
+### 📊 支持的模型
+
+| 模型名称 | 大小 | 特点 | 推荐场景 |
+|---------|------|------|---------|
+| qwen2.5:1.5b | 986 MB | 中文支持好 | 电商客服 ⭐⭐⭐⭐⭐ |
+| deepseek-r1:1.5b | 1.1 GB | 推理能力强 | 逻辑问题 ⭐⭐⭐⭐ |
+| llama2:7b | 3.8 GB | 通用性强 | 多语言支持 ⭐⭐⭐⭐ |
+| gemma:7b | 5.0 GB | Google 出品 | 高质量回答 ⭐⭐⭐⭐ |
+
+### 🎯 使用效果
+
+#### 本地模型优势
+- ✅ 完全免费，无需 API Key
+- ✅ 数据本地，保护隐私
+- ✅ 响应速度快（无网络延迟）
+- ✅ 可离线使用
+
+#### 云端模型优势
+- ✅ 模型能力强（数百亿参数）
+- ✅ 回答质量高
+- ✅ 无需本地资源
+- ✅ 即开即用
+
+### 📁 新增文件
+
+```
+AI_Chatbot/
+├── scripts/
+│   └── test_ollama.py          # ✨ 新增：Ollama 测试脚本
+├── setup_ollama.bat            # ✨ 新增：Windows 配置助手
+├── OLLAMA_CONFIG.txt           # ✨ 新增：快速配置指南
+└── docs/
+    ├── README.md               # ⭐ 已更新：添加 Ollama 说明
+    ├── TECHNICAL_DOCS.md       # ⭐ 已更新：补充 LLM 文档
+    └── MAINTENANCE_GUIDE.md    # ⭐ 已更新：添加检查步骤
+```
+
+### 💡 使用场景
+
+#### 场景 1: 使用本地模型（免费、隐私）
+```bash
+# 1. 安装 Ollama
+访问 https://ollama.ai 下载安装
+
+# 2. 下载模型
+ollama pull qwen2.5:1.5b
+
+# 3. 配置 .env
+USE_OLLAMA=true
+OLLAMA_MODEL=qwen2.5:1.5b
+
+# 4. 测试配置
+python scripts\test_ollama.py
+
+# 5. 启动服务
+python start.py
+```
+
+#### 场景 2: 切换模型（本地 ↔ 云端）
+```bash
+# 使用本地模型
+USE_OLLAMA=true
+
+# 使用 DeepSeek（云端）
+USE_OLLAMA=false
+DEEPSEEK_API_KEY=your_api_key
+
+# 使用模拟模式（测试）
+USE_OLLAMA=false
+# 不配置 DEEPSEEK_API_KEY 即可
+```
+
+#### 场景 3: 开发者调试
+```
+1. 访问开发者控制台：http://localhost:8000/static/console.html
+2. 点击"开发者"模式按钮
+3. 发送测试消息
+4. 查看完整响应数据：
+   - intent: "shipping"（原始意图标签）
+   - intent_cn: "物流查询"（中文意图）
+   - confidence: 0.95（置信度）
+   - strategy: "faq_match"（响应策略）
+   - 完整 JSON 数据（包含所有调试信息）
+```
+
+### 🐛 已知问题
+
+#### 问题 1: Ollama 服务未运行
+**现象**: API 调用失败，提示"Connection refused"
+**解决**: 执行 `ollama serve` 或重启电脑（Ollama 会自启动）
+
+#### 问题 2: 模型响应慢
+**现象**: 首次响应需要 10-30 秒
+**原因**: 本地模型加载需要时间
+**解决**: 
+- 保持 Ollama 服务常驻
+- 使用更小模型（如 qwen2.5:1.5b）
+- 确保内存充足（至少 8GB）
+
+### 🔗 相关资源
+
+- [Ollama 官网](https://ollama.ai)
+- [Ollama 模型库](https://ollama.ai/library)
+- [配置指南](OLLAMA_CONFIG.txt)
+
+---
+
 ## v1.1.0 (2026-03-31) - FAQ 知识库扩充
 
 ### ✨ 新增功能

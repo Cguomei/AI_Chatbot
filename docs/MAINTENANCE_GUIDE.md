@@ -26,6 +26,15 @@ curl http://localhost:8000/health
 - 查看是否有新增的坏案例
 - 标记紧急需要处理的
 
+**4. Ollama 本地模型检查**（如使用）
+```bash
+# 检查 Ollama 服务是否运行
+ollama list
+
+# 如果 Ollama 未运行，启动服务
+ollama serve
+```
+
 ---
 
 #### ✅ 晚上处理（5-10 分钟）

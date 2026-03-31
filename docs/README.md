@@ -27,6 +27,7 @@ python start.py
 ### 4. 访问系统
 - **用户对话页面**: http://localhost:8000/static/index.html
 - **管理后台**: http://localhost:8000/static/admin.html
+- **开发者控制台**: http://localhost:8000/static/console.html
 - **API 文档**: http://localhost:8000/docs
 
 ---
@@ -47,7 +48,9 @@ python start.py
 
 ### 技术栈
 - **后端**: Python 3.11 + FastAPI 0.109.0
-- **AI 模型**: DeepSeek / GPT-3.5 / 通义千问（可切换）
+- **AI 模型**: 
+  - 云端：DeepSeek / GPT-3.5 / 通义千问（可切换）
+  - 本地：Ollama（支持 qwen2.5、llama2 等开源模型）
 - **机器学习**: scikit-learn 1.4.0（意图识别）
 - **数据库**: JSON 文件存储（轻量级）
 - **前端**: 原生 HTML + JavaScript
@@ -92,6 +95,10 @@ AI_Chatbot/
 - 输入问题，获取 AI 回复
 - 查看意图识别结果和置信度
 - 实时显示响应时间
+- **三种模式切换**：
+  - **用户模式**：简洁界面，仅显示对话
+  - **客服模式**：显示会话 ID、响应时间、意图识别、置信度
+  - **开发者模式**：显示完整调试信息（意图标签、响应策略、原始 API 数据）
 
 ### 管理后台
 访问 `http://localhost:8000/static/admin.html` 使用完整功能：
@@ -207,6 +214,19 @@ taskkill /PID <进程号> /F
 - 检查网络连接
 - 查看账户余额
 - 切换到模拟模式测试
+
+### Q5: 如何使用 Ollama 本地模型
+1. 安装 Ollama：https://ollama.ai
+2. 下载模型：`ollama pull qwen2.5:1.5b`
+3. 配置 `.env` 文件：
+   ```env
+   OLLAMA_BASE_URL=http://localhost:11434
+   OLLAMA_MODEL=qwen2.5:1.5b
+   USE_OLLAMA=true
+   ```
+4. 重启服务：`python start.py`
+
+**参考文档**：详见 [OLLAMA 配置说明](OLLAMA_CONFIG.txt)
 
 ---
 

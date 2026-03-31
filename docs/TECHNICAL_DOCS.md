@@ -344,8 +344,52 @@ manager.cleanup_inactive(hours=24)  # 清理 24 小时未活动的会话
 **支持的模型**:
 ```python
 - MockLLMClient     # 模拟模式（免费测试）
-- DeepSeekClient    # DeepSeek Chat
+- DeepSeekClient    # DeepSeek Chat（云端 API）
+- OllamaClient      # Ollama 本地模型（支持 qwen2.5、llama2 等）
 - (可扩展 GPT、通义千问等)
+```
+
+**模型选择逻辑**:
+```python
+def get_llm_client(use_mock=False, use_ollama=None):
+    if use_ollama or os.getenv("USE_OLLAMA") == "true":
+        return OllamaClient()  # 本地模型
+    elif use_mock or not os.getenv("DEEPSEEK_API_KEY"):
+        return MockLLMClient()  # 模拟模式
+    else:
+        return DeepSeekClient()  # 云端 API
+```
+
+**Ollama 本地模型配置**:
+```python
+class OllamaClient(LLMClient):
+    def __init__(self):
+        self.base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+        self.model = os.getenv("OLLAMA_MODEL", "qwen2.5:1.5b")
+        self.temperature = float(os.getenv("TEMPERATURE", "0.7"))
+    
+    def chat(self, messages: List[Dict], **kwargs) -> str:
+        url = f"{self.base_url}/api/chat"
+        
+        payload = {
+            "model": self.model,
+            "messages": messages,
+            "stream": False,
+            "options": {
+                "temperature": self.temperature
+            }
+        }
+        
+        response = requests.post(url, json=payload, timeout=60)
+        return response.json()["message"]["content"]
+```
+
+**.env 配置示例**:
+```env
+# Ollama 本地模型配置
+OLLAMA_BASE_URL=http://localhost:11434
+OLLAMA_MODEL=qwen2.5:1.5b  # 使用 ollama list 查看已安装的模型
+USE_OLLAMA=true            # true=使用本地模型，false=使用云端 API
 ```
 
 **DeepSeek 调用示例**:
