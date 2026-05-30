@@ -1962,16 +1962,43 @@ if __name__ == "__main__":
 
         # 非 daemon 线程跑 uvicorn，确保不会被主线程退出杀掉
         import threading as _th
+        import time as _time
         server_ready = _th.Event()
+        server_failed = _th.Event()
+        server_failed_msg = [""]  # 用 list 跨线程传值
 
         def run_server():
-            cfg = uvicorn.Config(app, host=host, port=port, log_level="warning")
-            srv = uvicorn.Server(cfg)
-            server_ready.set()
-            srv.run()
+            try:
+                cfg = uvicorn.Config(app, host=host, port=port, log_level="warning")
+                srv = uvicorn.Server(cfg)
+                srv.run()  # 绑端口失败会直接抛异常
+            except Exception as _se:
+                _crash_log(f"init: server bind failed: {_se}")
+                server_failed_msg[0] = str(_se)
+                server_failed.set()
 
         server_thread = _th.Thread(target=run_server, daemon=False)
         server_thread.start()
+
+        # 等服务器真正绑定端口（成功则 run 会阻塞，失败则线程很快退出）
+        _time.sleep(1.0)
+        if server_failed.is_set() or not server_thread.is_alive():
+            _crash_log("init: server failed to bind, port likely in use")
+            safe_print("")
+            safe_print("-" * 50)
+            safe_print("  [错误] 端口 8000 已被占用")
+            safe_print("-" * 50)
+            safe_print("  说明你已经打开了另一个桌游排行窗口。")
+            safe_print("  直接把那个窗口用起来就行，无需再启动新的。")
+            safe_print("")
+            safe_print("  如果找不到之前的窗口：")
+            safe_print("    1. 打开任务管理器 (Ctrl+Shift+Esc)")
+            safe_print("    2. 找到 桌游排行 进程，结束它")
+            safe_print("    3. 重新启动本程序")
+            safe_print("-" * 50)
+            _crash_log(f"init: server error detail: {server_failed_msg[0]}")
+            exit_code = 1
+            sys.exit(exit_code)
 
         # 等服务器就绪后打开浏览器
         server_ready.wait(timeout=3)
