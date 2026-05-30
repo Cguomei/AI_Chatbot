@@ -1915,21 +1915,7 @@ if __name__ == "__main__":
 
         local_ip = get_local_ip()
 
-        safe_print("=" * 50)
-        safe_print("  Board Game Ranking System")
-        safe_print("=" * 50)
-        safe_print(f"  This PC:  http://127.0.0.1:{port}")
-        safe_print(f"  Phone:    http://{local_ip}:{port}")
-        safe_print(f"  Admin:    http://127.0.0.1:{port}/admin")
-        safe_print(f"  Account:  admin / admin123")
-        safe_print("-" * 50)
-        safe_print("  Phone can't connect? Check:")
-        safe_print("    1) Same WiFi as this PC")
-        safe_print("    2) Use the Phone address above")
-        safe_print("    3) If still blocked: run as admin once")
-        safe_print("-" * 50)
-        safe_print("  Press Ctrl+C to stop")
-        safe_print("=" * 50)
+        # banner 移到端口确定后再打印
 
         # 尝试添加 Windows 防火墙例外（让手机能连进来）
         if host == "0.0.0.0":
@@ -1974,23 +1960,30 @@ if __name__ == "__main__":
             server_failed = _th.Event()
             server_failed_msg[0] = ""
 
-            def run_server(_p=port):
+            def run_server(_p=port, _sf=server_failed, _sfm=server_failed_msg):
+                _old_stderr = None
                 try:
-                    # 抑制 uvicorn 的 stderr 噪音（绑定失败时）
-                    import io as _io, os as _os
-                    _old_stderr = _os.dup(2)
-                    _os.dup2(_os.open(_os.devnull, _os.O_WRONLY), 2)
-                    try:
-                        cfg = uvicorn.Config(app, host=host, port=_p, log_level="warning")
-                        srv = uvicorn.Server(cfg)
-                        srv.run()
-                    finally:
-                        _os.dup2(_old_stderr, 2)
-                        _os.close(_old_stderr)
+                    # 只在绑端口阶段抑制 stderr，成功后立即恢复
+                    import os as _ros
+                    _old_stderr = _ros.dup(2)
+                    _ros.dup2(_ros.open(_ros.devnull, _ros.O_WRONLY), 2)
+                    cfg = uvicorn.Config(app, host=host, port=_p, log_level="warning")
+                    srv = uvicorn.Server(cfg)
+                    # 绑定后恢复 stderr（srv.run() 会阻塞，所以先恢复）
+                    _ros.dup2(_old_stderr, 2)
+                    _ros.close(_old_stderr)
+                    srv.run()
                 except Exception as _se:
+                    # 恢复 stderr（可能还没恢复）
+                    try:
+                        if _old_stderr is not None:
+                            _ros.dup2(_old_stderr, 2)
+                            _ros.close(_old_stderr)
+                    except:
+                        pass
                     _crash_log(f"init: bind failed on {_p}: {_se}")
-                    server_failed_msg[0] = str(_se)
-                    server_failed.set()
+                    _sfm[0] = str(_se)
+                    _sf.set()
 
             server_thread = _th.Thread(target=run_server, daemon=False)
             server_thread.start()
@@ -2019,10 +2012,27 @@ if __name__ == "__main__":
         if not started:
             sys.exit(1)  # 理论上不会到这里
 
+        # ======== 端口确定后打印 banner ========
+        safe_print("=" * 50)
+        safe_print("  Board Game Ranking System")
+        safe_print("=" * 50)
+        safe_print(f"  This PC:  http://127.0.0.1:{port}")
+        safe_print(f"  Phone:    http://{local_ip}:{port}")
+        safe_print(f"  Admin:    http://127.0.0.1:{port}/admin")
+        safe_print(f"  Account:  admin / admin123")
+        safe_print("-" * 50)
+        safe_print("  Phone can't connect? Check:")
+        safe_print("    1) Same WiFi as this PC")
+        safe_print("    2) Use the Phone address above")
+        safe_print("    3) If still blocked: run as admin once")
+        safe_print("-" * 50)
+        safe_print("  Press Ctrl+C to stop")
+        safe_print("=" * 50)
+
         if port != original_port:
             _crash_log(f"init: port switched {original_port} -> {port}")
             safe_print(f"  端口 {original_port} 被占用，已自动使用 {port}")
-            safe_print(f"  访问地址: http://{local_ip}:{port}")
+
 
         # 服务器已就绪，稍等让 uvicorn 完全初始化
         _time.sleep(0.5)
