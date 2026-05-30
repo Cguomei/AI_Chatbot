@@ -1,0 +1,586 @@
+{% extends "base.html" %}
+{% block title %}管理后台 - 桌游排行{% endblock %}
+{% block content %}
+
+<h2 class="page-title">⚙️ 管理后台 <span style="font-size:12px;color:var(--text-muted);font-weight:500;">({{ admin }})</span> <a href="/api/auth/logout" style="font-size:12px;color:#dc2626;margin-left:10px;">退出登录</a></h2>
+
+<!-- 功能开关 -->
+<div class="card">
+    <h3 style="font-size:15px; font-weight:800; margin-bottom:12px;">🔧 功能开关</h3>
+    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:10px;">
+        <label class="toggle-card">
+            <input type="checkbox" id="toggleAchievements" {% if settings.enable_achievements == '1' %}checked{% endif %} onchange="toggleSetting('enable_achievements', this.checked)">
+            <div><strong style="font-size:13px;">🏅 成就系统</strong><div style="font-size:11px;color:var(--text-muted);">自动发放成就徽章</div></div>
+        </label>
+        <label class="toggle-card">
+            <input type="checkbox" id="toggleBalance" {% if settings.enable_balance == '1' %}checked{% endif %} onchange="toggleSetting('enable_balance', this.checked)">
+            <div><strong style="font-size:13px;">⚖️ 自动平衡建议</strong><div style="font-size:11px;color:var(--text-muted);">首页显示ELO分队建议</div></div>
+        </label>
+        <label class="toggle-card">
+            <input type="checkbox" id="toggleSeasons" {% if settings.enable_seasons == '1' %}checked{% endif %} onchange="toggleSetting('enable_seasons', this.checked)">
+            <div><strong style="font-size:13px;">📅 赛季系统</strong><div style="font-size:11px;color:var(--text-muted);">按赛季统计排行榜</div></div>
+        </label>
+        <label class="toggle-card">
+            <input type="checkbox" id="toggleAutoBackup" {% if settings.auto_backup == '1' %}checked{% endif %} onchange="toggleSetting('auto_backup', this.checked)">
+            <div><strong style="font-size:13px;">💾 自动备份</strong><div style="font-size:11px;color:var(--text-muted);">记录对局时自动备份数据库</div></div>
+        </label>
+    </div>
+    <div style="margin-top:12px; font-size:12px; color:var(--text-muted); border-top:1px solid var(--border); padding-top:12px;">
+        💡 各游戏的<strong>角色系统</strong>和<strong>特殊操作加分</strong>在下方游戏管理中分别开关
+    </div>
+</div>
+
+<!-- 赛季管理 -->
+<div class="card">
+    <h3 style="font-size:15px; font-weight:800; margin-bottom:10px;">📅 赛季管理
+        <button class="btn btn-outline btn-sm" onclick="showSeasonForm()">+ 新赛季</button>
+    </h3>
+    <div id="seasonForm" style="margin-bottom:10px; padding:16px; background:linear-gradient(135deg,#f8fafc,#f1f5f9); border-radius:var(--radius-sm); display:none; border:1px solid var(--border);">
+        <div style="display:flex; gap:8px;">
+            <input class="form-input" id="seasonName" placeholder="赛季名称（如：2026夏季赛）" style="flex:1;">
+            <button class="btn btn-primary btn-sm" onclick="createSeason()">创建</button>
+            <button class="btn btn-outline btn-sm" onclick="document.getElementById('seasonForm').style.display='none'">取消</button>
+        </div>
+    </div>
+    <div class="table-wrap">
+        <table>
+            <thead><tr><th>赛季</th><th>状态</th><th>操作</th></tr></thead>
+            <tbody>
+                {% for s in seasons %}
+                <tr>
+                    <td>{{ s.name }}</td>
+                    <td>{% if s.is_active %}<span class="tag tag-win">进行中</span>{% else %}<span style="color:#999;">已结束</span>{% endif %}</td>
+                    <td>
+                        {% if not s.is_active %}
+                        <button class="btn btn-outline btn-sm" onclick="api('/api/seasons/{{ s.id }}/activate','PUT').then(()=>location.reload())">激活</button>
+                        {% else %}
+                        <button class="btn btn-outline btn-sm" onclick="if(confirm('结束当前赛季？')) api('/api/seasons/{{ s.id }}/end','PUT').then(()=>location.reload())">结束</button>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- 游戏管理 -->
+<div class="card">
+    <h3 style="font-size:15px; font-weight:800; margin-bottom:12px;">🎲 游戏管理</h3>
+    <div class="table-wrap">
+        <table>
+            <thead><tr><th>游戏名</th><th>好人赢分</th><th>坏人赢分</th><th>输扣分</th><th>失败规则</th><th>ELO</th><th>🎭角色</th><th>⚡操作</th><th>操作</th></tr></thead>
+            <tbody>
+                {% for g in games %}
+                <tr>
+                    <td><strong>{{ g.name }}</strong></td>
+                    <td>+{{ g.good_win_score }}</td>
+                    <td>+{{ g.evil_win_score }}</td>
+                    <td>-{{ g.lose_penalty }}</td>
+                    <td>
+                        {% if g.lose_mode == 'zero' %}<span style="font-size:11px;color:#999;">输=0分</span>
+                        {% elif g.lose_mode == 'penalize_all' %}<span style="font-size:11px;color:#c62828;">输扣分+角色变扣分</span>
+                        {% else %}<span style="font-size:11px;color:#666;">保留角色加分</span>{% endif %}
+                    </td>
+                    <td>{% if g.use_elo %}<span class="tag tag-good">ON</span>{% else %}<span style="color:#999;">OFF</span>{% endif %}</td>
+                    <td><input type="checkbox" {% if g.enable_roles==1 %}checked{% endif %} onchange="toggleGameFeature({{ g.id }}, 'enable_roles', this.checked)"></td>
+                    <td><input type="checkbox" {% if g.enable_actions==1 %}checked{% endif %} onchange="toggleGameFeature({{ g.id }}, 'enable_actions', this.checked)"></td>
+                    <td><button class="btn btn-outline btn-sm" onclick="editGame({{ g.id }}, '{{ g.name }}', {{ g.good_win_score }}, {{ g.evil_win_score }}, {{ g.lose_penalty }}, '{{ g.lose_mode or 'keep_bonus' }}', {{ g.use_elo }})">编辑</button></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <div id="gameForm" style="margin-top:12px; padding:16px; background:linear-gradient(135deg,#f8fafc,#f1f5f9); border-radius:var(--radius-sm); display:none; border:1px solid var(--border);">
+        <input type="hidden" id="editGameId">
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+            <div class="form-group"><label class="form-label">游戏名</label><input class="form-input" id="gameName"></div>
+            <div class="form-group"><label class="form-label"><input type="checkbox" id="gameUseElo" value="1"> 启用ELO（ELO下失败规则无效）</label></div>
+            <div class="form-group"><label class="form-label">好人赢分</label><input class="form-input" type="number" id="gameGood" value="5"></div>
+            <div class="form-group"><label class="form-label">坏人赢分</label><input class="form-input" type="number" id="gameEvil" value="8"></div>
+            <div class="form-group"><label class="form-label">输扣分</label><input class="form-input" type="number" id="gameLose" value="3"></div>
+            <div class="form-group">
+                <label class="form-label">失败规则</label>
+                <select class="form-select" id="gameLoseMode">
+                    <option value="keep_bonus">保留角色/操作加分（当前行为）</option>
+                    <option value="zero">失败=0分（角色操作都不加）</option>
+                    <option value="penalize_all">失败扣分+角色操作变扣分</option>
+                </select>
+            </div>
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="saveGame()">💾 保存</button>
+        <button class="btn btn-outline btn-sm" onclick="document.getElementById('gameForm').style.display='none'">取消</button>
+    </div>
+    <button class="btn btn-outline btn-sm" style="margin-top:8px;" onclick="document.getElementById('gameForm').style.display='block'; document.getElementById('editGameId').value=''; document.getElementById('gameName').value=''; document.getElementById('gameGood').value=5; document.getElementById('gameEvil').value=8; document.getElementById('gameLose').value=3; document.getElementById('gameLoseMode').value='keep_bonus'; document.getElementById('gameUseElo').checked=false;">+ 新建游戏</button>
+
+    <!-- 角色管理 -->
+    <div style="margin-top:10px;">
+        <strong style="font-size:12px;">🎭 游戏角色</strong>
+        <div style="margin-top:4px; margin-bottom:6px;">
+            {% for g in games %}
+            <div style="margin-bottom:6px;">
+                <span style="font-weight:bold;font-size:12px;">{{ g.name }}：</span>
+                {% if g.roles %}
+                    {% for r in g.roles %}
+                    <span style="display:inline-block;padding:2px 8px;background:{{ '#e3f2fd' if r.team=='good' else '#ffebee' }};border-radius:10px;font-size:11px;margin:2px;">
+                        {{ r.name }}
+                        <span style="color:{{ '#1976d2' if r.team=='good' else '#c62828' }};">{{ '好' if r.team=='good' else '坏' }}{{ '+' + r.score_bonus|string if r.score_bonus > 0 else '' }}</span>
+                        <span style="color:#c62828;cursor:pointer;margin-left:2px;" onclick="api('/api/roles/{{ r.id }}','DELETE').then(()=>location.reload())">×</span>
+                    </span>
+                    {% endfor %}
+                {% else %}
+                    <span style="font-size:11px;color:#999;">暂无角色</span>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <select class="form-select" id="roleGame" style="width:auto; min-width:100px;">
+                {% for g in games %}<option value="{{ g.id }}">{{ g.name }}</option>{% endfor %}
+            </select>
+            <input class="form-input" id="roleName" placeholder="角色名（如：预言家）" style="flex:1; max-width:120px;">
+            <select class="form-select" id="roleTeam" style="width:auto;"><option value="good">好人</option><option value="evil">坏人</option></select>
+            <input class="form-input" id="roleBonus" type="number" value="0" style="width:60px;" title="额外加分">
+            <button class="btn btn-outline btn-sm" onclick="addRole()">+ 添加角色</button>
+        </div>
+    </div>
+</div>
+
+<!-- 成就管理 -->
+<div class="card">
+    <h3 style="font-size:15px; font-weight:800; margin-bottom:10px;">🏅 成就徽章
+        <button class="btn btn-outline btn-sm" onclick="showAchForm()">+ 自定义成就</button>
+    </h3>
+    <div id="achForm" style="margin-bottom:10px; padding:16px; background:linear-gradient(135deg,#f8fafc,#f1f5f9); border-radius:var(--radius-sm); display:none; border:1px solid var(--border);">
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+            <input class="form-input" id="achName" placeholder="成就名称">
+            <input class="form-input" id="achIcon" placeholder="图标emoji" value="🏅">
+            <input class="form-input" id="achDesc" placeholder="描述">
+            <select class="form-select" id="achType" onchange="onAchTypeChange()">
+                <optgroup label="全局统计">
+                    <option value="total_matches">总对局数</option>
+                    <option value="total_wins">总胜场数</option>
+                    <option value="total_score">总积分</option>
+                    <option value="high_score">单场最高分</option>
+                    <option value="mvp_count">MVP次数</option>
+                    <option value="consecutive_wins">连胜次数</option>
+                    <option value="consecutive_loses">连败次数</option>
+                    <option value="good_win_rate">好人胜率%</option>
+                    <option value="evil_win_rate">坏人胜率%</option>
+                    <option value="elo_rating">ELO积分</option>
+                </optgroup>
+                <optgroup label="按游戏">
+                    <option value="game_matches">某游戏对局数</option>
+                    <option value="game_wins">某游戏胜场数</option>
+                </optgroup>
+                <optgroup label="按角色">
+                    <option value="role_matches">某角色对局数</option>
+                    <option value="role_wins">某角色胜场数</option>
+                </optgroup>
+            </select>
+            <input class="form-input" id="achValue" type="number" placeholder="条件值" value="1">
+            <div id="achGameRow" style="display:none;">
+                <select class="form-select" id="achGame" onchange="onAchGameChange()">
+                    <option value="">选择游戏</option>
+                    {% for g in games %}
+                    <option value="{{ g.id }}">{{ g.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div id="achRoleRow" style="display:none;">
+                <select class="form-select" id="achRole">
+                    <option value="">选择角色</option>
+                </select>
+            </div>
+            <input type="hidden" id="achConditionTypeStore" value="">
+        </div>
+        <div style="margin-top:4px; font-size:11px; color:#999;" id="achPreview"></div>
+        <button class="btn btn-primary btn-sm" style="margin-top:6px;" onclick="createAchievement()">创建</button>
+        <button class="btn btn-outline btn-sm" style="margin-top:6px;" onclick="document.getElementById('achForm').style.display='none'">取消</button>
+    </div>
+    <div style="display:flex; flex-wrap:wrap; gap:6px;">
+        {% for a in achievements %}
+        <div style="display:flex; align-items:center; gap:4px; background:#f8f9fa; border-radius:10px; padding:4px 10px; font-size:11px;">
+            <span>{{ a.icon }}</span>
+            <span><strong>{{ a.name }}</strong>{% if a.description %} - {{ a.description }}{% endif %}</span>
+            <span style="color:#999;">({{ {'total_matches':'总对局','total_wins':'总胜场','total_score':'总积分','high_score':'最高分','mvp_count':'MVP','consecutive_wins':'连胜','consecutive_loses':'连败','good_win_rate':'好人率','evil_win_rate':'坏人率','elo_rating':'ELO','game_matches':'对局','game_wins':'胜场','role_matches':'对局','role_wins':'胜场'}[a.condition_type] }}≥{{ a.condition_value }}
+                {% if a.game_id %}[{{ game_names[a.game_id] }}]{% endif %}
+                {% if a.role_id %}[{{ role_names[a.role_id] }}]{% endif %})
+            </span>
+            {% if not a.is_preset %}
+            <span style="color:#c62828;cursor:pointer;" onclick="api('/api/achievements/{{ a.id }}','DELETE').then(()=>location.reload())">×</span>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- 操作加分管理 -->
+<div class="card">
+    <h3 style="font-size:15px; font-weight:800; margin-bottom:10px;">⚡ 特殊操作加分
+        <button class="btn btn-outline btn-sm" onclick="showActionForm()">+ 添加</button>
+    </h3>
+    <div id="actionForm" style="margin-bottom:10px; padding:16px; background:linear-gradient(135deg,#f8fafc,#f1f5f9); border-radius:var(--radius-sm); display:none; border:1px solid var(--border);">
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <select class="form-select" id="actionGame" style="width:auto;">
+                {% for g in games %}<option value="{{ g.id }}">{{ g.name }}</option>{% endfor %}
+            </select>
+            <input class="form-input" id="actionName" placeholder="操作名（如：盲杀预言家）" style="flex:1; max-width:180px;">
+            <input class="form-input" id="actionBonus" type="number" value="3" style="width:70px;" title="额外加分">
+            <button class="btn btn-primary btn-sm" onclick="createAction()">创建</button>
+            <button class="btn btn-outline btn-sm" onclick="document.getElementById('actionForm').style.display='none'">取消</button>
+        </div>
+    </div>
+    <div style="display:flex; flex-wrap:wrap; gap:6px;">
+        {% for a in actions %}
+        <div style="display:flex; align-items:center; gap:4px; background:#f8f9fa; border-radius:10px; padding:4px 10px; font-size:11px;">
+            <span>⚡</span>
+            <span><strong>{{ a.name }}</strong> +{{ a.score_bonus }}</span>
+            {% if not a.is_preset %}
+            <span style="color:#c62828;cursor:pointer;" onclick="api('/api/actions/{{ a.id }}','DELETE').then(()=>location.reload())">×</span>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- 玩家 & 对局管理 -->
+<div class="card">
+    <h3 style="font-size:15px; font-weight:800; margin-bottom:12px;">👤 玩家管理</h3>
+    <div style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:10px;">
+        {% for p in players %}
+        <span style="padding:4px 10px; background:#f0f0f0; border-radius:14px; font-size:12px;">
+            {{ p.name }} <span style="color:#c62828;cursor:pointer;margin-left:4px;font-weight:700;" onclick="if(confirm('删除 {{ p.name }} 将清除其所有对局记录和成就，确定？')) api('/api/players/{{ p.id }}','DELETE').then(()=>location.reload()).catch(e=>alert(e.error||'删除失败'))">×</span>
+        </span>
+        {% endfor %}
+    </div>
+    <div style="display:flex; gap:6px;">
+        <input class="form-input" id="newPlayerAdmin" placeholder="新玩家昵称" style="flex:1; max-width:200px;">
+        <button class="btn btn-outline btn-sm" onclick="addPlayerAdmin()">添加</button>
+    </div>
+</div>
+
+<div class="card">
+    <h3 style="font-size:15px; font-weight:800; margin-bottom:12px;">📋 对局记录 & 数据导出</h3>
+    <div style="display:flex; gap:8px; margin-bottom:8px; flex-wrap:wrap; align-items:center;">
+        <a href="/api/export/rankings" class="btn btn-outline btn-sm">📥 导出排行榜</a>
+        <a href="/api/export/matches" class="btn btn-outline btn-sm">📥 导出所有对局</a>
+        <span style="flex:1;"></span>
+        <span style="font-size:11px;color:var(--text-muted);">{{ matches|length }} 条记录</span>
+    </div>
+
+    <!-- 对局列表（折叠） -->
+    <div id="adminMatches" style="max-height:600px; overflow-y:auto;">
+        {% for m in matches %}
+        <div class="accordion" style="border-bottom:1px solid var(--border);">
+            <div class="accordion-header" style="padding:8px 0; display:flex; gap:10px; align-items:center;" onclick="this.parentElement.classList.toggle('open')">
+                <input type="checkbox" class="match-cb" value="{{ m.id }}" onclick="event.stopPropagation()" style="flex-shrink:0;">
+                <span style="font-size:11px;color:var(--text-muted);min-width:80px;">{{ m.played_at.split(' ')[0] if m.played_at else '' }}</span>
+                <span style="font-weight:600;min-width:60px;">{{ m.name }}</span>
+                <span class="tag {% if m.winner=='good' %}tag-good{% else %}tag-evil{% endif %}">{{ '好人胜' if m.winner=='good' else '坏人胜' }}</span>
+                <span style="font-size:11px;color:var(--text-secondary);">
+                    👥 {{ m.players_info.split('、')|length }}人
+                </span>
+                <span style="flex:1;"></span>
+                {% if m.notes %}<span style="font-size:11px;color:#ff8f00;">📝 有复盘</span>{% endif %}
+                <button class="btn btn-danger btn-sm" onclick="event.stopPropagation(); if(confirm('确定删除？')) api('/api/matches/{{ m.id }}','DELETE').then(()=>location.reload())" style="flex-shrink:0;">删除</button>
+            </div>
+            <div class="accordion-body" style="padding-bottom:8px;">
+                <div style="display:flex;flex-wrap:wrap;gap:6px 12px;font-size:12px;color:var(--text-secondary);">
+                    {% set players = m.players_info.split('、') %}
+                    {% for p in players %}
+                    {% set parts = p.replace('(', ' ').replace(')', '').split() %}
+                    {% set pname = parts[0] %}
+                    {% set pteam = parts[1] if parts|length > 1 else '?' %}
+                    <span style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:12px;font-size:11px;{% if pteam == '好' %}background:#ede9fe;color:#5b21b6;{% else %}background:#fee2e2;color:#991b1b;{% endif %}">{{ pname }}<span style="font-size:10px;opacity:.7;">({{ pteam }})</span></span>
+                    {% endfor %}
+                </div>
+                {% if m.notes %}
+                <div style="margin-top:8px;padding:8px 12px;background:#fefce8;border-radius:8px;border-left:3px solid #f59e0b;font-size:11px;color:#92400e;line-height:1.6;">
+                    📝 复盘笔记：{{ m.notes }}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+        {% if not matches %}
+        <div class="empty" style="padding:24px;"><div class="empty-icon">📋</div><div class="empty-text">暂无对局记录</div></div>
+        {% endif %}
+    </div>
+
+    <div style="margin-top:8px; display:flex; gap:8px;">
+        <button class="btn btn-danger btn-sm" onclick="batchDelete()">🗑️ 批量删除选中</button>
+        <span style="font-size:11px;color:var(--text-muted);align-self:center;" id="selectCount">已选 0 条</span>
+    </div>
+</div>
+
+<!-- 数据备份与恢复（独立卡片） -->
+<div class="card">
+    <h3 style="font-size:15px; font-weight:800; margin-bottom:12px;">💾 数据备份与恢复</h3>
+
+    <!-- 文件路径说明 -->
+    <div style="background:#f0f7ff; border:1px solid #b3d4ff; border-radius:8px; padding:10px 12px; margin-bottom:12px; font-size:11px; line-height:1.8;">
+        <div style="font-weight:600; margin-bottom:4px; font-size:12px;">📂 备份文件位置</div>
+        <div>📦 数据库文件：<code style="background:#e8f0fe; padding:1px 6px; border-radius:4px;">db/game.db</code></div>
+        <div>💾 自动备份：<code style="background:#e8f0fe; padding:1px 6px; border-radius:4px;">db/backups/auto_backup_YYYYMMDD_HHMMSS.db</code></div>
+        <div>🔄 恢复保护：恢复后旧数据另存为 <code style="background:#e8f0fe; padding:1px 6px; border-radius:4px;">game.db.auto_bak</code></div>
+        <div style="margin-top:6px; color:#64748b;">💡 定期将 <code>db/</code> 文件夹复制到 U盘/云盘 即可安全备份</div>
+    </div>
+
+    <!-- 下载 & 恢复 -->
+    <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:10px;">
+        <a href="/api/backup/download" class="btn btn-outline btn-sm">📥 下载当前数据库</a>
+        <span style="color:#999; font-size:13px;">|</span>
+        <span style="font-size:11px;color:#999; max-width:400px;">
+            📤 <strong>恢复备份</strong>：选择 .db 备份文件上传即可还原数据。恢复前会自动备份当前数据以防万一。
+        </span>
+    </div>
+    <div style="display:flex; gap:6px; align-items:center; margin-bottom:10px;">
+        <input type="file" id="backupFile" accept=".db" style="font-size:11px;" onchange="document.getElementById('restoreBtn').disabled=!this.files.length">
+        <button type="button" class="btn btn-outline btn-sm" id="restoreBtn" disabled onclick="restoreBackup()">📤 恢复备份</button>
+    </div>
+
+    <!-- 自动备份列表 -->
+    <h4 style="font-size:13px; margin:10px 0 4px;">🕐 自动备份记录 <span id="autoBackupStatus" style="font-size:10px;color:#999;">({% if settings.auto_backup == '1' %}最多保留10份{% else %}已关闭{% endif %})</span></h4>
+    <div id="autoBackupList" style="font-size:11px; color:#999;">
+        <div class="skeleton skeleton-text" style="width:70%;"></div>
+        <div class="skeleton skeleton-text" style="width:50%;"></div>
+    </div>
+</div>
+
+<script>
+// 角色数据，按游戏ID分组
+const ROLES_BY_GAME = {
+    {% for g in games %}
+    {{ g.id }}: [{% for r in g.roles %}{id:{{ r.id }},name:'{{ r.name }}'},{% endfor %}],
+    {% endfor %}
+};
+
+function showSeasonForm() { document.getElementById('seasonForm').style.display = 'block'; }
+function showAchForm() { document.getElementById('achForm').style.display = 'block'; onAchTypeChange(); }
+
+async function toggleSetting(key, value) {
+    try {
+        await api('/api/settings', 'PUT', { [key]: value ? '1' : '0' });
+        showToast(key === 'enable_achievements' ? (value ? '成就系统已开启' : '成就系统已关闭') :
+                   key === 'enable_balance' ? (value ? '平衡建议已开启' : '平衡建议已关闭') :
+                   key === 'auto_backup' ? (value ? '自动备份已开启' : '自动备份已关闭') :
+                   (value ? '赛季系统已开启' : '赛季系统已关闭'));
+        if (key === 'auto_backup') {
+            loadAutoBackups();
+            const statusEl = document.getElementById('autoBackupStatus');
+            if (statusEl) statusEl.textContent = value ? '(最多保留10份)' : '(已关闭)';
+        }
+    } catch(e) {
+        // 失败时还原开关状态
+        const idKey = key.replace('enable_', '');
+        const capKey = idKey.split('_').map(s => s[0].toUpperCase() + s.slice(1)).join('');
+        const box = document.getElementById('toggle' + capKey);
+        if (box) box.checked = !value;
+        showToast('设置失败：' + (e.error || '请检查网络或重新登录'));
+    }
+}
+
+async function toggleGameFeature(gameId, feature, value) {
+    await api(`/api/games/${gameId}/features`, 'PUT', { [feature]: value ? 1 : 0 });
+    showToast(feature === 'enable_roles' ? (value ? '角色系统已开启' : '角色系统已关闭') : (value ? '操作加分已开启' : '操作加分已关闭'));
+}
+
+function editGame(id, name, gs, es, lp, lm, ue) {
+    document.getElementById('gameForm').style.display = 'block';
+    document.getElementById('editGameId').value = id;
+    document.getElementById('gameName').value = name;
+    document.getElementById('gameGood').value = gs;
+    document.getElementById('gameEvil').value = es;
+    document.getElementById('gameLose').value = lp;
+    document.getElementById('gameLoseMode').value = lm || 'keep_bonus';
+    document.getElementById('gameUseElo').checked = ue == 1;
+}
+
+async function saveGame() {
+    const id = document.getElementById('editGameId').value;
+    const data = {
+        name: document.getElementById('gameName').value,
+        good_win_score: parseInt(document.getElementById('gameGood').value),
+        evil_win_score: parseInt(document.getElementById('gameEvil').value),
+        lose_penalty: parseInt(document.getElementById('gameLose').value),
+        lose_mode: document.getElementById('gameLoseMode').value,
+        use_elo: document.getElementById('gameUseElo').checked ? 1 : 0
+    };
+    try { await api(id ? `/api/games/${id}` : '/api/games', id ? 'PUT' : 'POST', data); location.reload(); }
+    catch(e) { showToast(e.error || '保存失败'); }
+}
+
+async function createSeason() {
+    const name = document.getElementById('seasonName').value.trim();
+    if (!name) return;
+    try { await api('/api/seasons', 'POST', { name }); location.reload(); }
+    catch(e) { showToast(e.error || '创建失败'); }
+}
+
+async function createAchievement() {
+    const ctype = document.getElementById('achType').value;
+    let game_id = null, role_id = null;
+    if (ctype === 'game_matches' || ctype === 'game_wins') {
+        game_id = parseInt(document.getElementById('achGame').value) || null;
+        if (!game_id) { showToast('请选择游戏'); return; }
+    }
+    if (ctype === 'role_matches' || ctype === 'role_wins') {
+        role_id = parseInt(document.getElementById('achRole').value) || null;
+        if (!role_id) { showToast('请选择角色'); return; }
+    }
+    const data = {
+        name: document.getElementById('achName').value,
+        icon: document.getElementById('achIcon').value,
+        description: document.getElementById('achDesc').value,
+        condition_type: ctype,
+        condition_value: parseInt(document.getElementById('achValue').value),
+        game_id: game_id,
+        role_id: role_id
+    };
+    if (!data.name) { showToast('请输入成就名称'); return; }
+    try { await api('/api/achievements', 'POST', data); location.reload(); }
+    catch(e) { showToast(e.error || '创建失败'); }
+}
+
+function onAchTypeChange() {
+    const ctype = document.getElementById('achType').value;
+    document.getElementById('achGameRow').style.display = (ctype === 'game_matches' || ctype === 'game_wins') ? '' : 'none';
+    document.getElementById('achRoleRow').style.display = (ctype === 'role_matches' || ctype === 'role_wins') ? '' : 'none';
+    updateAchPreview();
+}
+
+function onAchGameChange() {
+    const gameId = parseInt(document.getElementById('achGame').value);
+    const roleSel = document.getElementById('achRole');
+    roleSel.innerHTML = '<option value="">选择角色</option>';
+    if (gameId && ROLES_BY_GAME[gameId]) {
+        ROLES_BY_GAME[gameId].forEach(r => {
+            roleSel.innerHTML += `<option value="${r.id}">${r.name}</option>`;
+        });
+    }
+    updateAchPreview();
+}
+
+function updateAchPreview() {
+    const name = document.getElementById('achName').value || '成就';
+    const val = document.getElementById('achValue').value || '?';
+    const conditions = {total_matches:'总对局',total_wins:'总胜场',total_score:'总积分',high_score:'最高分',mvp_count:'MVP',consecutive_wins:'连胜',consecutive_loses:'连败',good_win_rate:'好人率',evil_win_rate:'坏人率',elo_rating:'ELO',game_matches:'对局',game_wins:'胜场',role_matches:'对局',role_wins:'胜场'};
+    const ctype = document.getElementById('achType').value;
+    let scope = '';
+    if (ctype.startsWith('game_')) { scope = ' [游戏:' + (document.getElementById('achGame').selectedOptions[0]?.text||'?') + ']'; }
+    if (ctype.startsWith('role_')) { scope = ' [角色:' + (document.getElementById('achRole').selectedOptions[0]?.text||'?') + ']'; }
+    document.getElementById('achPreview').textContent = `👉 ${name}：${conditions[ctype]||ctype}≥${val}${scope}`;
+}
+
+// 绑定预览更新
+document.getElementById('achType').addEventListener('change', onAchTypeChange);
+['achName','achValue','achGame','achRole'].forEach(id => {
+    document.getElementById(id)?.addEventListener('input', updateAchPreview);
+    document.getElementById(id)?.addEventListener('change', updateAchPreview);
+});
+
+async function addRole() {
+    const data = {
+        game_id: parseInt(document.getElementById('roleGame').value),
+        name: document.getElementById('roleName').value,
+        team: document.getElementById('roleTeam').value,
+        score_bonus: parseInt(document.getElementById('roleBonus').value)
+    };
+    if (!data.name) { showToast('请输入角色名'); return; }
+    try { await api('/api/roles', 'POST', data); location.reload(); }
+    catch(e) { showToast(e.error || '添加失败'); }
+}
+
+async function addPlayerAdmin() {
+    const input = document.getElementById('newPlayerAdmin');
+    const name = input.value.trim();
+    if (!name) return;
+    try { await api('/api/players', 'POST', { name }); location.reload(); }
+    catch(e) { showToast(e.error || '添加失败'); }
+}
+
+function showActionForm() { document.getElementById('actionForm').style.display = 'block'; }
+async function createAction() {
+    const data = {
+        game_id: parseInt(document.getElementById('actionGame').value),
+        name: document.getElementById('actionName').value,
+        score_bonus: parseInt(document.getElementById('actionBonus').value)
+    };
+    if (!data.name) { showToast('请输入操作名'); return; }
+    try { await api('/api/actions', 'POST', data); location.reload(); }
+    catch(e) { showToast(e.error || '添加失败'); }
+}
+
+// 批量选择
+function toggleSelectAll(el) {
+    document.querySelectorAll('.match-cb').forEach(cb => { cb.checked = el.checked; });
+    updateSelectCount();
+}
+document.querySelectorAll('.match-cb').forEach(cb => cb.addEventListener('change', updateSelectCount));
+function updateSelectCount() {
+    const count = document.querySelectorAll('.match-cb:checked').length;
+    document.getElementById('selectCount').textContent = '已选 ' + count + ' 条';
+}
+
+async function batchDelete() {
+    const checked = document.querySelectorAll('.match-cb:checked');
+    if (checked.length === 0) { showToast('请至少选择一条对局'); return; }
+    if (!confirm('确定删除选中的 ' + checked.length + ' 条对局？此操作不可撤销！')) return;
+    const ids = Array.from(checked).map(cb => parseInt(cb.value));
+    try { await api('/api/matches/batch-delete', 'POST', { ids }); location.reload(); }
+    catch(e) { showToast(e.error || '批量删除失败'); }
+}
+
+async function restoreBackup() {
+    const file = document.getElementById('backupFile').files[0];
+    if (!file) return;
+    if (!confirm('恢复备份将覆盖当前所有数据（旧数据会自动备份）。确定继续？')) return;
+    const formData = new FormData();
+    formData.append('file', file);
+    try {
+        const res = await fetch('/api/backup/restore', { method: 'POST', body: formData });
+        const data = await res.json();
+        showToast(data.message || '恢复成功');
+        setTimeout(() => location.reload(), 1000);
+    } catch(e) { showToast('恢复失败'); }
+}
+
+// ===== 自动备份列表 =====
+async function loadAutoBackups() {
+    const el = document.getElementById('autoBackupList');
+    try {
+        const data = await api('/api/backup/auto');
+        if (!data.length) {
+            el.innerHTML = '<span style="color:#999;">暂无自动备份（开启自动备份后，记录对局时会自动生成）</span>';
+            return;
+        }
+        let html = '<div style="display:flex;flex-direction:column;gap:4px;">';
+        data.forEach(b => {
+            html += `<div style="display:flex;align-items:center;gap:8px;background:#f8f9fa;border-radius:6px;padding:4px 10px;">
+                <span style="font-size:12px;">📦</span>
+                <span style="flex:1;"><strong>${b.filename}</strong> <span style="color:#999;">${b.size} · ${b.time}</span></span>
+                <a href="/api/backup/auto/${encodeURIComponent(b.filename)}" class="btn btn-outline btn-sm" style="font-size:10px;padding:1px 6px;">📥 下载</a>
+                <button class="btn btn-outline btn-sm" style="font-size:10px;padding:1px 6px;color:#c62828;" onclick="deleteAutoBackup('${b.filename}')">删除</button>
+            </div>`;
+        });
+        html += '</div>';
+        el.innerHTML = html;
+    } catch(e) {
+        el.innerHTML = '<span style="color:#c62828;">加载失败' + (e.error ? '：' + e.error : '，请刷新重试') + '</span>';
+    }
+}
+
+async function deleteAutoBackup(filename) {
+    if (!confirm('确定删除 ' + filename + ' ？')) return;
+    try {
+        await api('/api/backup/auto/' + encodeURIComponent(filename), 'DELETE');
+        loadAutoBackups();
+        showToast('已删除');
+    } catch(e) { showToast('删除失败'); }
+}
+
+loadAutoBackups();
+</script>
+
+{% endblock %}

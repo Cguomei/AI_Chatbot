@@ -1,0 +1,49 @@
+<h2>新功能清单 — 选优先级</h2>
+<p class="subtitle">勾选你想先做的功能（可多选）</p>
+
+<div class="options" data-multiselect>
+  <div class="option" data-choice="elo" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>ELO 动态积分 + 自动平衡建议</h3>
+      <p>替换固定加减分为 ELO 算法（强弱胜弱扣多、弱胜强加分多），记录对局时根据 ELO 分差建议"谁和谁不该同队"</p>
+      <span class="label">影响核心计分逻辑 · 约 2h</span>
+    </div>
+  </div>
+
+  <div class="option" data-choice="season" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>赛季系统 + 成就徽章</h3>
+      <p>创建赛季（如"2026夏季赛"），赛季内独立排名、自动归档。预设 + 自定义成就（如"连赢5局"、"卧底之王"），自动发放徽章</p>
+      <span class="label">新增2张表 + 成就引擎 · 约 2h</span>
+    </div>
+  </div>
+
+  <div class="option" data-choice="export" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>数据导出</h3>
+      <p>支持导出 CSV/Excel 格式：排行榜、个人战绩、对局明细。在管理后台一键下载</p>
+      <span class="label">轻量 · 约 0.5h</span>
+    </div>
+  </div>
+
+  <div class="option" data-choice="custom" onclick="toggleSelect(this)">
+    <div class="letter">D</div>
+    <div class="content">
+      <h3>完全自定义规则</h3>
+      <p>支持更多计分方式：按人数调节加分、MVP额外加分、连续对局加成、不同角色不同分（预言家+2/狼人+5）</p>
+      <span class="label">重构计分引擎 · 约 1.5h</span>
+    </div>
+  </div>
+
+  <div class="option" data-choice="wechat" onclick="toggleSelect(this)">
+    <div class="letter">E</div>
+    <div class="content">
+      <h3>微信小程序 + 对局战报</h3>
+      <p>微信小程序前端（独立项目）+ 战报生成功能（结束后自动生成图文摘要："某阵营逆转取胜"）</p>
+      <span class="label">独立子项目 · 约 3h</span>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,53 @@
+<h2>记录对局流程 — 三步完成</h2>
+<p class="subtitle">选游戏 → 选玩家分配阵营 → 点选获胜方</p>
+
+<div class="mockup" style="max-width:420px; margin:0 auto;">
+  <div class="mockup-header">📱 记录对局（手机端视图）</div>
+  <div class="mockup-body">
+    <!-- Step 1 -->
+    <div style="margin-bottom:16px; padding:8px; background:#f0f4ff; border-radius:6px;">
+      <span style="font-weight:600; font-size:12px;">📌 第1步：选择游戏</span>
+      <div style="margin-top:6px;">
+        <select class="mock-input" style="width:100%; padding:6px; font-size:12px;">
+          <option>阿瓦隆</option>
+          <option>狼人杀</option>
+          <option>三国杀</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Step 2 -->
+    <div style="margin-bottom:16px; padding:8px; background:#fff3e0; border-radius:6px;">
+      <span style="font-weight:600; font-size:12px;">📌 第2步：选择玩家并分配阵营</span>
+      <div style="margin-top:6px; display:flex; flex-wrap:wrap; gap:6px;">
+        <span style="padding:3px 8px; border-radius:10px; font-size:11px; background:#2196F3; color:#fff; cursor:pointer;">张三 🔵好人</span>
+        <span style="padding:3px 8px; border-radius:10px; font-size:11px; background:#f44336; color:#fff; cursor:pointer;">李四 🔴坏人</span>
+        <span style="padding:3px 8px; border-radius:10px; font-size:11px; background:#2196F3; color:#fff; cursor:pointer;">王五 🔵好人</span>
+        <span style="padding:3px 8px; border-radius:10px; font-size:11px; background:#f44336; color:#fff; cursor:pointer;">赵六 🔴坏人</span>
+        <button class="mock-button" style="padding:3px 8px; font-size:11px;">+ 添加玩家</button>
+      </div>
+      <div style="margin-top:4px; font-size:10px; color:#999;">点击切换阵营 | 至少2人</div>
+    </div>
+
+    <!-- Step 3 -->
+    <div style="margin-bottom:16px; padding:8px; background:#e8f5e9; border-radius:6px;">
+      <span style="font-weight:600; font-size:12px;">📌 第3步：谁赢了？</span>
+      <div style="margin-top:6px; display:flex; gap:8px;">
+        <button class="mock-button" style="flex:1; background:#2196F3; color:#fff; padding:8px; font-size:12px;">🔵 好人获胜</button>
+        <button class="mock-button" style="flex:1; background:#f44336; color:#fff; padding:8px; font-size:12px;">🔴 坏人获胜</button>
+      </div>
+    </div>
+
+    <!-- Score preview -->
+    <div style="padding:10px; background:#f5f5f5; border-radius:6px; text-align:center;">
+      <span style="font-size:11px; color:#666;">📊 得分预览</span>
+      <div style="margin-top:4px; display:flex; justify-content:space-around; font-size:11px;">
+        <span>张三 <span style="color:#4CAF50;">+5</span></span>
+        <span>王五 <span style="color:#4CAF50;">+5</span></span>
+        <span>李四 <span style="color:#f44336;">-3</span></span>
+        <span>赵六 <span style="color:#f44336;">-3</span></span>
+      </div>
+      <button class="mock-button" style="margin-top:8px; width:100%; padding:10px; font-size:13px; background:#4CAF50; color:#fff;">✅ 确认记录</button>
+    </div>
+  </div>
+</div>

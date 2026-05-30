@@ -1,0 +1,63 @@
+<h2>核心页面布局</h2>
+<p class="subtitle">请对比两种首页风格，点击选择你喜欢的</p>
+
+<div class="options">
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>数据看板风格</h3>
+      <p>顶部统计卡片 + 下方排行榜表格，信息密集，适合常看数据的人</p>
+      <div class="mockup" style="margin-top:12px;">
+        <div class="mockup-body">
+          <div class="mock-nav" style="text-align:center; padding:6px; font-size:11px;">🎮 桌游排行 | 📊 排行榜 | 🎲 记录对局 | ⚙️ 管理</div>
+          <div style="display:flex; gap:8px; padding:8px;">
+            <div class="placeholder" style="flex:1; text-align:center; font-size:11px;">📊 总对局<br/><strong>328</strong></div>
+            <div class="placeholder" style="flex:1; text-align:center; font-size:11px;">👥 玩家<br/><strong>12</strong></div>
+            <div class="placeholder" style="flex:1; text-align:center; font-size:11px;">🏆 最高分<br/><strong>156</strong></div>
+          </div>
+          <div style="padding:8px;">
+            <div style="display:flex; justify-content:space-between; padding:4px 0; border-bottom:1px solid #eee; font-size:11px;">
+              <span>🥇 张三</span><span>156分</span><span>65%胜率</span>
+            </div>
+            <div style="display:flex; justify-content:space-between; padding:4px 0; border-bottom:1px solid #eee; font-size:11px;">
+              <span>🥈 李四</span><span>142分</span><span>58%胜率</span>
+            </div>
+            <div style="display:flex; justify-content:space-between; padding:4px 0; border-bottom:1px solid #eee; font-size:11px;">
+              <span>🥉 王五</span><span>128分</span><span>52%胜率</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>简洁卡片风格</h3>
+      <p>大卡片展示排名，视觉突出，适合手机查看，更像社交 App</p>
+      <div class="mockup" style="margin-top:12px;">
+        <div class="mockup-body">
+          <div class="mock-nav" style="text-align:center; padding:6px; font-size:11px;">🎮 桌游排行</div>
+          <div style="padding:8px; display:flex; flex-direction:column; gap:8px;">
+            <div class="placeholder" style="text-align:left; padding:10px; font-size:11px; display:flex; align-items:center; gap:8px;">
+              <span style="font-size:20px;">🥇</span>
+              <div><strong>张三</strong><br/><span style="font-size:10px;color:#666;">156分 · 胜率65%</span></div>
+              <span style="margin-left:auto; font-weight:600; font-size:13px;">156</span>
+            </div>
+            <div class="placeholder" style="text-align:left; padding:10px; font-size:11px; display:flex; align-items:center; gap:8px;">
+              <span style="font-size:20px;">🥈</span>
+              <div><strong>李四</strong><br/><span style="font-size:10px;color:#666;">142分 · 胜率58%</span></div>
+              <span style="margin-left:auto; font-weight:600; font-size:13px;">142</span>
+            </div>
+            <div class="placeholder" style="text-align:left; padding:10px; font-size:11px; display:flex; align-items:center; gap:8px;">
+              <span style="font-size:20px;">🥉</span>
+              <div><strong>王五</strong><br/><span style="font-size:10px;color:#666;">128分 · 胜率52%</span></div>
+              <span style="margin-left:auto; font-weight:600; font-size:13px;">128</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,181 @@
+{% extends "base.html" %}
+{% block title %}排行榜 - 桌游排行{% endblock %}
+{% block content %}
+
+<div class="stats">
+    <div class="stat-card">
+        <div class="stat-icon">🎲</div>
+        <div class="stat-num">{{ total_matches }}</div>
+        <div class="stat-label">总对局</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon">👥</div>
+        <div class="stat-num">{{ total_players }}</div>
+        <div class="stat-label">玩家</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon">🏆</div>
+        <div class="stat-num">{{ top_score }}</div>
+        <div class="stat-label">最高积分</div>
+    </div>
+</div>
+
+<div class="card">
+    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+        <h3 style="font-size:17px; font-weight:800; letter-spacing:-.02em;">🏆 排行榜</h3>
+        <div style="display:flex; gap:6px; flex-wrap:wrap;">
+            {% if seasons and settings.enable_seasons == '1' %}
+            <select class="form-select" style="width:auto; min-width:110px;" onchange="filterRanking('season', this.value)">
+                <option value="">全部赛季</option>
+                {% for s in seasons %}
+                <option value="{{ s.id }}" {% if current_season_id == s.id %}selected{% endif %}>{{ s.name }}</option>
+                {% endfor %}
+            </select>
+            {% endif %}
+            <select class="form-select" style="width:auto; min-width:110px;" onchange="filterRanking('game', this.value)">
+                <option value="">全部游戏</option>
+                {% for g in games %}
+                <option value="{{ g.id }}" {% if current_game_id == g.id %}selected{% endif %}>{{ g.name }}</option>
+                {% endfor %}
+            </select>
+            {% if rankings %}
+            <a href="/api/export/rankings{% if current_season_id %}?season_id={{ current_season_id }}{% endif %}" class="btn btn-outline btn-sm">📥 导出排行</a>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if season %}
+    <div style="font-size:11px; color:#999; margin-top:4px;">当前赛季：{{ season.name }}</div>
+    {% endif %}
+
+    {% if not rankings %}
+    <div class="empty">
+        <div class="empty-icon">🎲</div>
+        <div class="empty-text">还没有对局记录</div>
+        <div class="empty-hint">记录第一场对局，开启排行榜之旅</div>
+        <a href="/record" class="btn btn-primary" style="margin-top:12px;">去记录第一局</a>
+    </div>
+    {% else %}
+    <div class="table-wrap" style="margin-top:8px;">
+        <table>
+            <thead><tr><th style="width:40px;">#</th><th>玩家</th><th>积分</th><th>对局</th><th>胜率</th></tr></thead>
+            <tbody>
+                {% for r in rankings %}
+                <tr>
+                    <td>{% if loop.index == 1 %}🥇{% elif loop.index == 2 %}🥈{% elif loop.index == 3 %}🥉{% else %}{{ loop.index }}{% endif %}</td>
+                    <td><a href="/player/{{ r.id }}" style="text-decoration:none; color:var(--text); font-weight:600; transition:color .15s;" onmouseover="this.style.color='var(--primary)'" onmouseout="this.style.color='var(--text)'">{{ r.avatar }} {{ r.name }}</a></td>
+                    <td><strong style="color:{% if r.total_score >= 0 %}#2e7d32{% else %}#c62828{% endif %};">{{ r.total_score }}</strong></td>
+                    <td>{{ r.match_count }}</td>
+                    <td>{{ r.win_rate }}%</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+</div>
+
+<!-- 平衡建议：仅在启用时显示 -->
+{% if settings.enable_balance == '1' %}
+<div class="card" id="balance-card" style="display:none;">
+    <h3 style="font-size:15px; font-weight:800; margin-bottom:10px;">⚖️ 自动平衡建议</h3>
+    <div id="balance-content">
+        <div class="skeleton skeleton-text" style="width:60%;"></div>
+        <div class="skeleton skeleton-text" style="width:80%;"></div>
+        <div class="skeleton skeleton-text" style="width:40%;"></div>
+    </div>
+    <button class="btn btn-outline btn-sm" onclick="loadBalance()">🔄 重新计算</button>
+</div>
+{% endif %}
+
+<!-- 最近对局 -->
+<div class="card">
+    <h3 style="font-size:15px; font-weight:800; margin-bottom:12px;">📋 最近对局
+        <a href="/api/export/matches{% if current_game_id %}?game_id={{ current_game_id }}{% endif %}" class="btn btn-outline btn-sm" style="margin-left:8px;">📥 导出</a>
+    </h3>
+    <div id="recent-matches">
+        <div class="skeleton skeleton-row"></div>
+        <div class="skeleton skeleton-row" style="width:92%;"></div>
+        <div class="skeleton skeleton-row" style="width:85%;"></div>
+    </div>
+</div>
+
+<script>
+function filterRanking(type, value) {
+    const params = new URLSearchParams(location.search);
+    if (value) {
+        params.set(type === 'season' ? 'season_id' : 'game_id', value);
+    } else {
+        params.delete(type === 'season' ? 'season_id' : 'game_id');
+    }
+    location.href = '/?' + params.toString();
+}
+
+(async function() {
+    try {
+        const data = await api('/api/matches/history?limit=15');
+        const el = document.getElementById('recent-matches');
+        if (!data.length) { el.innerHTML = '<div class="empty"><div class="empty-text">暂无对局</div></div>'; return; }
+        let html = data.map(m => {
+            const winLabel = m.winner === 'good' ? '好人胜' : '坏人胜';
+            const tagClass = m.winner === 'good' ? 'tag-good' : 'tag-evil';
+            const date = m.played_at ? m.played_at.split(' ')[0] : '';
+            const detail = m.detail ? m.detail.split('、').map(d => {
+                const parts = d.split(':'); if (parts.length < 3) return '';
+                const teamLabel = parts[1] === 'good' ? '好' : '坏';
+                const score = parseInt(parts[2]);
+                const cls = score >= 0 ? 'score-positive' : 'score-negative';
+                const roleName = parts[3] || '';
+                const roleBonus = parts[4] ? parseInt(parts[4]) : 0;
+                const roleStr = roleName ? ` <small style="color:#ff8f00;">${roleName}${roleBonus>0?'+'+roleBonus:''}</small>` : '';
+                return `<span>${parts[0]}<span style="font-size:10px;color:#999;">(${teamLabel})</span>${roleStr} <span class="${cls}">${score>0?'+':''}${score}</span></span>`;
+            }).join(' &nbsp;') : '';
+            // 操作加分
+            const actStr = (m.actions && m.actions.length) ? '<div style="margin-top:4px; font-size:10px; color:#ff6f00;">⚡ ' + m.actions.map(a => `${a.name}:${a.action_name}+${a.score_bonus}`).join('、') + '</div>' : '';
+            return `<div class="accordion" onclick="this.classList.toggle('open')">
+                <div class="accordion-header">
+                    <span style="font-size:11px;color:#999;">${date}</span>
+                    <span><strong>${m.game_name}</strong></span>
+                    <span class="tag ${tagClass}">${winLabel}</span>
+                </div>
+                <div class="accordion-body">${detail}${actStr}</div>
+            </div>`;
+        }).join('');
+        el.innerHTML = html;
+    } catch(e) {
+        const msg = e && e.error ? e.error : (e && e.message ? e.message : String(e));
+        document.getElementById('recent-matches').innerHTML = '<div class="empty"><div class="empty-text">加载失败，请刷新重试</div><div style="font-size:11px;color:#999;margin-top:4px;">' + msg + '</div></div>';
+    }
+})();
+
+function loadBalance() {
+    const card = document.getElementById('balance-card');
+    card.style.display = 'block';
+    const el = document.getElementById('balance-content');
+    el.innerHTML = '计算中...';
+    api(`/api/balance/suggest{% if current_game_id %}?game_id={{ current_game_id }}{% endif %}`).then(data => {
+        if (!data.team_a.length) { el.innerHTML = '<div class="empty"><div class="empty-text">需要至少2名玩家</div></div>'; return; }
+        let html = '<div style="display:flex; gap:12px; flex-wrap:wrap;">';
+        html += `<div style="flex:1; min-width:150px; background:#e3f2fd; border-radius:8px; padding:10px;">
+            <strong>🔵 建议A队 (ELO均分:${data.team_a_avg})</strong>
+            <div style="margin-top:4px;">${data.team_a.map(p => `<div style="font-size:12px;">${p.name} <span style="color:#666;">${p.elo_rating}</span></div>`).join('')}</div>
+        </div>`;
+        html += `<div style="flex:1; min-width:150px; background:#fce4ec; border-radius:8px; padding:10px;">
+            <strong>🔴 建议B队 (ELO均分:${data.team_b_avg})</strong>
+            <div style="margin-top:4px;">${data.team_b.map(p => `<div style="font-size:12px;">${p.name} <span style="color:#666;">${p.elo_rating}</span></div>`).join('')}</div>
+        </div>`;
+        html += '</div>';
+        if (data.suggestions.length) {
+            html += '<div style="margin-top:8px; font-size:12px; color:#e65100;">💡 ' + data.suggestions.join('<br>') + '</div>';
+        }
+        el.innerHTML = html;
+    });
+}
+
+// 自动加载平衡建议（按开关控制）
+{% if settings.enable_balance == '1' %}
+loadBalance();
+{% endif %}
+</script>
+
+{% endblock %}

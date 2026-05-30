@@ -1,0 +1,265 @@
+{% extends "base.html" %}
+{% block title %}{{ player.name }} - 桌游排行{% endblock %}
+{% block content %}
+
+<div class="card" style="text-align:center; background: linear-gradient(135deg, rgba(124,58,237,.04), rgba(6,182,212,.04)), var(--card-bg);">
+    <div style="font-size:52px; margin-bottom:4px;">{{ player.avatar }}</div>
+    <h2 style="font-size:26px; margin:6px 0; font-weight:900; letter-spacing:-.03em;">{{ player.name }}</h2>
+    <div style="display:flex; justify-content:center; gap:28px; margin-top:8px;">
+        <div><div style="font-size:32px; font-weight:800; background:linear-gradient(135deg,var(--primary),var(--accent)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;">{{ total_score }} 分</div><div style="font-size:11px;color:var(--text-muted);font-weight:600;text-transform:uppercase;letter-spacing:.06em;">总积分</div></div>
+    </div>
+    <a href="/api/export/player/{{ player.id }}" class="btn btn-outline btn-sm" style="margin-top:12px;">📥 导出数据</a>
+</div>
+
+<div class="stats">
+    <div class="stat-card"><div class="stat-icon">🎮</div><div class="stat-num">{{ total_matches }}</div><div class="stat-label">总对局</div></div>
+    <div class="stat-card"><div class="stat-num" style="color:#15803d;">{{ win_rate }}%</div><div class="stat-label">总胜率</div></div>
+    <div class="stat-card"><div class="stat-num" style="color:{% if avg_score >= 0 %}#15803d{% else %}#dc2626{% endif %};">{{ avg_score }}</div><div class="stat-label">场均分</div></div>
+</div>
+
+<div style="display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:14px;">
+    <div class="card" style="background: linear-gradient(135deg, #ede9fe, #faf5ff); border-color: #c4b5fd;">
+        <h4 style="font-size:14px; margin-bottom:10px; font-weight:700;">🔵 好人阵营</h4>
+        <div style="font-size:13px; line-height:2;">
+            <div>扮演次数：<strong>{{ good_count }}</strong></div>
+            <div>胜率：<strong style="color:#6d28d9;">{{ good_winrate }}%</strong></div>
+            <div>场均得分：<strong style="color:#6d28d9;">{{ good_avg }}</strong></div>
+        </div>
+    </div>
+    <div class="card" style="background: linear-gradient(135deg, #fee2e2, #fef2f2); border-color: #fca5a5;">
+        <h4 style="font-size:14px; margin-bottom:10px; font-weight:700;">🔴 坏人阵营</h4>
+        <div style="font-size:13px; line-height:2;">
+            <div>扮演次数：<strong>{{ evil_count }}</strong></div>
+            <div>胜率：<strong style="color:#dc2626;">{{ evil_winrate }}%</strong></div>
+            <div>场均得分：<strong style="color:#dc2626;">{{ evil_avg }}</strong></div>
+        </div>
+    </div>
+</div>
+
+<!-- 胜率饼图 -->
+{% if good_count > 0 or evil_count > 0 %}
+<div class="card">
+    <h3 style="font-size:15px; font-weight:800; margin-bottom:10px;">📊 胜率分布</h3>
+    <div style="display:flex; align-items:center; gap:20px; flex-wrap:wrap;">
+        <div class="chart-wrap" style="width:160px; height:160px;">
+            <canvas id="winRateChart"></canvas>
+        </div>
+        <div style="font-size:12px; line-height:2;">
+            <div>🔵 好人胜场：{{ good_wins }} / {{ good_count }}</div>
+            <div>🔴 坏人胜场：{{ evil_wins }} / {{ evil_count }}</div>
+            <div style="color:#999; margin-top:4px;">（只统计已完结对局）</div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- 最擅长角色 -->
+{% if best_role %}
+<div class="card" style="border-left:4px solid #10b981; background:linear-gradient(135deg,#f0fdf4,#ecfdf5);">
+    <h3 style="font-size:16px; font-weight:800; margin-bottom:8px;">⭐ 最擅长角色</h3>
+    <div style="display:flex; align-items:center; gap:14px;">
+        <span style="font-size:34px;">🎭</span>
+        <div>
+            <strong style="font-size:18px;">{{ best_role.role_name }}</strong>
+            <span style="font-size:12px;color:var(--text-muted);margin-left:8px;">{{ best_role.game_name }} · {{ '好人' if best_role.team=='good' else '坏人' }}</span>
+            <div style="font-size:13px; color:#15803d; margin-top:4px; font-weight:500;">
+                出场{{ best_role.times }}次 · 胜率 <strong>{{ best_role.win_rate }}%</strong> · 场均 <strong>{{ best_role.avg_score }}</strong> 分
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% if achievements %}
+<div class="card">
+    <h3 style="font-size:15px; font-weight:800; margin-bottom:10px;">🏅 成就徽章</h3>
+    <div style="display:flex; flex-wrap:wrap; gap:8px;">
+        {% for a in achievements %}
+        <div style="display:flex; align-items:center; gap:4px; background:#f8f9fa; border-radius:10px; padding:6px 12px;">
+            <span style="font-size:20px;">{{ a.icon }}</span>
+            <div><strong style="font-size:12px;">{{ a.name }}</strong><br/><span style="font-size:10px;color:#999;">{{ a.description }}</span></div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+<div class="card" id="achievement-progress" style="display:none;">
+    <h3 style="font-size:15px; font-weight:800; margin-bottom:10px;">📈 成就进度</h3>
+    <div style="display:flex; flex-wrap:wrap; gap:6px;" id="ach-progress-list"></div>
+</div>
+
+{% if role_stats %}
+<div class="card">
+    <h3 style="font-size:15px; font-weight:800; margin-bottom:10px;">🎭 各角色表现</h3>
+    <div class="table-wrap">
+        <table>
+            <thead><tr><th>角色</th><th>游戏</th><th>阵营</th><th>次数</th><th>胜率</th><th>场均分</th></tr></thead>
+            <tbody>
+                {% for rs in role_stats %}
+                <tr>
+                    <td><strong>{{ rs.role_name }}</strong></td>
+                    <td style="font-size:11px;">{{ rs.game_name }}</td>
+                    <td><span class="tag {% if rs.team=='good' %}tag-good{% else %}tag-evil{% endif %}">{{ '好人' if rs.team=='good' else '坏人' }}</span></td>
+                    <td>{{ rs.times }}</td>
+                    <td style="color:{% if rs.wins/rs.times*100 >= 50 %}#2e7d32{% else %}#c62828{% endif %};font-weight:600;">{{ '%.0f' % (rs.wins/rs.times*100) if rs.times else 0 }}%</td>
+                    <td style="color:{% if rs.avg_score >= 0 %}#2e7d32{% else %}#c62828{% endif %};">{{ rs.avg_score }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+<div class="card">
+    <h3 style="font-size:15px; font-weight:800; margin-bottom:10px;">📋 近期对局</h3>
+    {% if not history %}
+    <div class="empty"><div class="empty-icon">🎮</div><div class="empty-text">暂无对局</div><div class="empty-hint">快去记录一场对局吧</div></div>
+    {% else %}
+    <div class="table-wrap">
+        <table>
+            <thead><tr><th>日期</th><th>游戏</th><th>阵营</th><th>角色</th><th>结果</th><th style="cursor:pointer;" onclick="toggleAllDetails()" title="点击展开/收起所有详情">📊 得分</th><th>💬</th></tr></thead>
+            <tbody>
+                {% for h in history %}
+                <tr class="history-row {% if loop.index0 >= 5 %}folded-row{% endif %}" onclick="this.classList.toggle('expanded')" style="cursor:pointer;">
+                    <td style="font-size:11px;color:#999;">{{ h.played_at.split(' ')[0] if h.played_at else '' }}</td>
+                    <td>{{ h.name }}</td>
+                    <td><span class="tag {% if h.team=='good' %}tag-good{% else %}tag-evil{% endif %}">{{ '好人' if h.team=='good' else '坏人' }}</span></td>
+                    <td style="font-size:11px;">{{ h.role_name or '-' }}</td>
+                    <td><span class="tag {% if h.team==h.winner %}tag-win{% else %}tag-lose{% endif %}">{{ '胜利' if h.team==h.winner else '失败' }}</span></td>
+                    <td><strong style="color:{% if h.score_change >= 0 %}#2e7d32{% else %}#c62828{% endif %};">{{ '%+d' % h.score_change }}</strong></td>
+                    <td>{% if h.match_notes %}<span title="{{ h.match_notes }}" style="font-size:12px;">📝</span>{% endif %}</td>
+                </tr>
+                <tr class="detail-row {% if loop.index0 >= 5 %}folded-row{% endif %}" style="display:none;">
+                    <td colspan="7" style="padding:10px 14px; background:#f8f7ff; border-left:3px solid #6366f1;">
+                        <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center;">
+                            <div style="font-size:11px;">📊 明细：<strong>{{ (h.base_score|string)|replace('-','−') if h.base_score < 0 else '+' + (h.base_score|string) }}</strong> 基础分</div>
+                            {% if h.role_name %}
+                            <div style="font-size:11px;">🎭 <strong>{{ h.role_name }}</strong> {{ '%+d' % h.role_bonus }} 分</div>
+                            {% endif %}
+                            {% for a in h.actions %}
+                            <div style="font-size:11px;">⚡ <strong>{{ a.name }}</strong> {{ '%+d' % a.score_bonus }} 分</div>
+                            {% endfor %}
+                            {% if not h.role_name and not h.actions %}
+                            <div style="font-size:11px;color:var(--text-muted);">无角色/操作加分</div>
+                            {% endif %}
+                        </div>
+                        {% if h.match_notes %}
+                        <div style="margin-top:8px;padding:8px 12px;background:#fefce8;border-radius:8px;border-left:3px solid #f59e0b;font-size:11px;color:#92400e;line-height:1.6;">
+                            📝 复盘笔记：{{ h.match_notes }}
+                        </div>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% if history|length > 5 %}
+    <div style="text-align:center; margin-top:10px;">
+        <button class="btn btn-outline btn-sm" id="toggleMoreBtn" onclick="toggleMoreRows()">展开全部 ({{ history|length }}场)</button>
+    </div>
+    {% endif %}
+    {% endif %}
+</div>
+
+<style>
+.history-row.expanded + .detail-row { display: table-row !important; }
+.folded-row { display: none; }
+.folded-row.expanded-block { display: table-row !important; }
+</style>
+
+<script>
+function toggleAllDetails() {
+    const visibleRows = document.querySelectorAll('.history-row:not(.folded-row), .history-row.expanded-block');
+    const anyCollapsed = Array.from(visibleRows).some(r => !r.classList.contains('expanded'));
+    visibleRows.forEach(r => r.classList.toggle('expanded', anyCollapsed));
+}
+
+let allExpanded = false;
+function toggleMoreRows() {
+    const btn = document.getElementById('toggleMoreBtn');
+    const rows = document.querySelectorAll('.folded-row');
+    allExpanded = !allExpanded;
+    rows.forEach(r => r.classList.toggle('expanded-block', allExpanded));
+    btn.textContent = allExpanded ? '收起' : '展开全部 ({{ history|length }}场)';
+}
+
+// 胜率饼图
+{% if good_count > 0 or evil_count > 0 %}
+(function() {
+    const ctx = document.getElementById('winRateChart');
+    if (!ctx) return;
+    const goodWins = {{ good_wins }};
+    const evilWins = {{ evil_wins }};
+    const goodLose = {{ good_count }} - goodWins;
+    const evilLose = {{ evil_count }} - evilWins;
+    new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: ['好人胜', '好人败', '坏人胜', '坏人败'],
+            datasets: [{
+                data: [goodWins, goodLose, evilWins, evilLose],
+                backgroundColor: ['rgba(59,130,246,.8)', 'rgba(147,197,253,.5)', 'rgba(239,68,68,.8)', 'rgba(252,165,165,.5)'],
+                borderColor: '#fff',
+                borderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: function(ctx) {
+                            const total = ctx.dataset.data.reduce((a,b)=>a+b,0);
+                            const pct = total ? (ctx.raw/total*100).toFixed(1) : 0;
+                            return ctx.label + ': ' + ctx.raw + ' (' + pct + '%)';
+                        }
+                    }
+                }
+            }
+        }
+    });
+})();
+{% endif %}
+
+// 成就进度
+{% if achievements %}
+(async function() {
+    try {
+        const res = await fetch('/api/achievements/progress/{{ player.id }}');
+        const data = await res.json();
+        const unearned = data.filter(a => !a.earned);
+        if (unearned.length === 0) return;
+        const container = document.getElementById('achievement-progress');
+        container.style.display = '';
+        const list = document.getElementById('ach-progress-list');
+        const conditions = {
+            total_matches:'总对局',total_wins:'总胜场',total_score:'总积分',high_score:'最高分',
+            mvp_count:'MVP',consecutive_wins:'连胜',consecutive_loses:'连败',
+            good_win_rate:'好人率',evil_win_rate:'坏人率',elo_rating:'ELO',
+            game_matches:'对局',game_wins:'胜场',role_matches:'对局',role_wins:'胜场'
+        };
+        unearned.forEach(a => {
+            const pct = Math.min(100, Math.round(a.current_value / a.condition_value * 100));
+            const scope = a.condition_type.startsWith('game_') ? '-'+a.game_name : (a.condition_type.startsWith('role_') ? '-'+a.role_name : '');
+            list.innerHTML += `<div style="display:flex;align-items:center;gap:6px;background:#f8f9fa;border-radius:8px;padding:5px 10px;font-size:11px;min-width:160px;">
+                <span>${a.icon}</span>
+                <div style="flex:1;min-width:0;">
+                    <div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${a.name}${scope}</div>
+                    <div style="display:flex;align-items:center;gap:4px;">
+                        <span style="font-size:10px;color:#999;">${a.current_value}/${a.condition_value}</span>
+                        <div class="progress-bar"><div class="fill" style="width:${pct}%"></div></div>
+                    </div>
+                </div>
+            </div>`;
+        });
+    } catch(e) { /* ignore */ }
+})();
+{% endif %}
+</script>
+
+{% endblock %}

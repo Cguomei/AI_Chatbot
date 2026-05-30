@@ -1,0 +1,56 @@
+<h2>推荐方案：FastAPI + Jinja2 + SQLite</h2>
+<p class="subtitle">服务端渲染，手机/电脑自适应，开发效率最高</p>
+
+<div class="section">
+  <h3>整体架构</h3>
+  <div class="mockup">
+    <div class="mockup-header">系统架构一览</div>
+    <div class="mockup-body">
+      <div style="display:flex; gap:12px; flex-wrap:wrap; justify-content:center;">
+        <div class="placeholder" style="flex:1; min-width:120px; text-align:center; padding:16px;">
+          <strong>浏览器</strong><br/>
+          <small>手机 / 电脑</small><br/>
+          <span style="font-size:11px;color:#666;">响应式布局</span>
+        </div>
+        <div style="display:flex;align-items:center;font-size:24px;">➡️</div>
+        <div class="placeholder" style="flex:1; min-width:120px; text-align:center; padding:16px;">
+          <strong>FastAPI</strong><br/>
+          <small>后端路由 + API</small><br/>
+          <span style="font-size:11px;color:#666;">Jinja2 渲染页面</span>
+        </div>
+        <div style="display:flex;align-items:center;font-size:24px;">➡️</div>
+        <div class="placeholder" style="flex:1; min-width:120px; text-align:center; padding:16px;">
+          <strong>SQLite</strong><br/>
+          <small>轻量数据库</small><br/>
+          <span style="font-size:11px;color:#666;">单文件，零配置</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>数据模型（核心5张表）</h3>
+  <table style="width:100%; border-collapse:collapse; font-size:14px;">
+    <tr style="border-bottom:1px solid #ddd;">
+      <td style="padding:8px;font-weight:600;">players</td>
+      <td style="padding:8px;">玩家（id, 昵称, 头像, 创建时间）</td>
+    </tr>
+    <tr style="border-bottom:1px solid #ddd;">
+      <td style="padding:8px;font-weight:600;">games</td>
+      <td style="padding:8px;">游戏（id, 名称, 好人赢分, 坏人赢分, 输扣分等规则）</td>
+    </tr>
+    <tr style="border-bottom:1px solid #ddd;">
+      <td style="padding:8px;font-weight:600;">matches</td>
+      <td style="padding:8px;">对局（id, 游戏, 获胜阵营, 日期, 创建者）</td>
+    </tr>
+    <tr style="border-bottom:1px solid #ddd;">
+      <td style="padding:8px;font-weight:600;">match_players</td>
+      <td style="padding:8px;">对局参与（match_id, player_id, 阵营）</td>
+    </tr>
+    <tr style="border-bottom:1px solid #ddd;">
+      <td style="padding:8px;font-weight:600;">admins</td>
+      <td style="padding:8px;">管理员账号（id, 用户名, 密码哈希）</td>
+    </tr>
+  </table>
+</div>

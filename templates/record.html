@@ -1,0 +1,928 @@
+{% extends "base.html" %}
+{% block title %}记录对局 - 桌游排行{% endblock %}
+{% block content %}
+
+<h2 class="page-title">📝 记录对局</h2>
+
+<!-- 步骤进度条 -->
+<div class="step-progress" id="stepProgress">
+    <div class="sp-bar"><div class="sp-fill" id="spFill"></div></div>
+    <div class="sp-steps">
+        <div class="sp-dot active" data-step="1"><span>1</span><small>选择游戏</small></div>
+        <div class="sp-dot" data-step="2"><span>2</span><small>选玩家</small></div>
+        <div class="sp-dot" data-step="3"><span>3</span><small>定胜负</small></div>
+    </div>
+</div>
+
+<style>
+.step-progress { margin-bottom: 20px; }
+.sp-bar { height: 4px; background: var(--border); border-radius: 4px; margin-bottom: 12px; overflow: hidden; }
+.sp-fill { height: 100%; width: 0%; border-radius: 4px; background: linear-gradient(90deg, var(--primary), var(--accent)); transition: width .5s cubic-bezier(.22,.61,.36,1); }
+.sp-steps { display: flex; justify-content: center; gap: 60px; }
+.sp-dot { display: flex; flex-direction: column; align-items: center; gap: 6px; transition: all .3s; }
+.sp-dot span { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 14px; background: var(--bg-alt); color: var(--text-muted); border: 2px solid var(--border); transition: all .3s; }
+.sp-dot small { font-size: 10px; color: var(--text-muted); font-weight: 600; transition: color .3s; }
+.sp-dot.done span { background: linear-gradient(135deg, var(--primary), var(--accent)); color: #fff; border-color: transparent; box-shadow: 0 2px 10px var(--primary-glow); }
+.sp-dot.done small { color: var(--primary); }
+.sp-dot.active span { background: #fff; color: var(--primary); border-color: var(--primary-light); box-shadow: 0 0 0 4px rgba(99,102,241,.12); }
+.sp-dot.active small { color: var(--primary-dark); font-weight: 700; }
+</style>
+
+<div class="steps" id="steps">
+    <!-- 第1步 -->
+    <div class="step" id="step1">
+        <div style="display:flex;align-items:center; gap:8px; flex-wrap:wrap;">
+            <span class="step-num">1</span><strong>选择游戏</strong>
+            <select class="form-select" id="gameSelect" onchange="selectGame()" style="width:auto;min-width:140px;">
+                <option value="">-- 请选择 --</option>
+                {% for g in games %}
+                <option value="{{ g.id }}" data-use-elo="{{ g.use_elo }}">{{ g.name }}{% if g.use_elo %} (ELO){% endif %}</option>
+                {% endfor %}
+            </select>
+            {% if presets %}
+            <span style="font-size:11px;color:#999;">|</span>
+            <select class="form-select" id="presetSelect" onchange="loadPreset()" style="width:auto;min-width:120px;font-size:11px;">
+                <option value="">📋 快速开战...</option>
+                {% for p in presets %}
+                <option value="{{ p.id }}">{{ p.name }}</option>
+                {% endfor %}
+            </select>
+            {% endif %}
+        </div>
+        <div id="gameRules" style="font-size:11px; color:#999; margin-top:4px;"></div>
+    </div>
+
+    <!-- 第2步 -->
+    <div class="step disabled" id="step2">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+            <span class="step-num">2</span><strong>选择玩家，分配阵营和角色</strong>
+            <span style="flex:1;"></span>
+            <span id="teamCount" style="font-size:11px; color:#999;"></span>
+            <button class="btn btn-outline btn-sm" id="roleRecommendBtn" onclick="toggleRoleRecommend()" style="display:none;font-size:11px;">
+                📋 推荐角色
+            </button>
+        </div>
+        <!-- 操作提示 -->
+        <div id="playerSelectHint" style="display:none;font-size:13px;color:#4f46e5;background:linear-gradient(135deg,#eef2ff,#e0e7ff);border-radius:10px;padding:10px 14px;margin-top:8px;text-align:center;border:1px solid #c7d2fe;">
+            👆 <strong>点击上方玩家卡片</strong> 来分配阵营 —— 点一次=好人，再点=坏人，再点=取消
+        </div>
+        <!-- 角色推荐面板 -->
+        <div id="roleRecommend" style="display:none;margin-top:8px;padding:12px 14px;background:linear-gradient(135deg,#eff6ff,#dbeafe);border-radius:12px;border:1px solid #bfdbfe;font-size:12px;box-shadow:0 1px 4px rgba(59,130,246,.06);"></div>
+        <!-- 玩家选择区 -->
+        <div style="margin-top:8px; display:flex; flex-wrap:wrap; gap:6px;" id="playerList">
+            {% for p in players %}
+            <span class="player-tag" data-pid="{{ p.id }}" data-name="{{ p.name }}" data-elo="{{ p.elo_rating }}" onclick="cyclePlayerTeam(this)" title="点击：未选 → 好人 → 坏人">
+                {{ p.avatar }} {{ p.name }}
+            </span>
+            {% endfor %}
+        </div>
+        <div style="margin-top:8px; display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
+            <input class="form-input" id="newPlayerName" placeholder="输入新玩家昵称，按回车确认" style="flex:1; min-width:120px;" onkeydown="if(event.key==='Enter'){event.preventDefault();addNewPlayer();}">
+            <button class="btn btn-outline btn-sm" onclick="addNewPlayer()">+ 添加新玩家</button>
+            {% if presets %}<button class="btn btn-outline btn-sm" onclick="savePreset()" id="savePresetBtn" style="display:none;">💾 保存为预设</button>{% endif %}
+        </div>
+
+        <!-- 已选玩家详情 -->
+        <div id="selectedArea" style="margin-top:10px; display:none;">
+            <div style="font-size:12px;font-weight:bold;margin-bottom:6px;">已选玩家及角色分配</div>
+            <div id="selectedPlayersList" style="display:flex;flex-direction:column;gap:6px;"></div>
+        </div>
+    </div>
+
+    <!-- 第3步 -->
+    <div class="step disabled" id="step3">
+        <span class="step-num">3</span><strong>谁赢了？</strong>
+        <div class="btn-group" style="margin-top:8px;">
+            <button class="btn" style="background:linear-gradient(135deg,#2563eb,#3b82f6);color:#fff;" onclick="setWinner('good')">🔵 好人获胜</button>
+            <button class="btn" style="background:linear-gradient(135deg,#dc2626,#ef4444);color:#fff;" onclick="setWinner('evil')">🔴 坏人获胜</button>
+        </div>
+
+        <!-- 操作加分区 -->
+        <div id="actionArea" style="margin-top:12px; display:none;">
+            <div style="font-size:12px;font-weight:bold;margin-bottom:4px;">⚡ 特殊操作加分</div>
+            <div style="font-size:11px;color:#999;margin-bottom:4px;">选择本局发生的特殊事件（可多选，支持自定义）</div>
+            <div id="actionList" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
+        </div>
+
+        <div id="scorePreview" style="margin-top:12px;"></div>
+
+        <!-- 对局笔记 -->
+        <div style="margin-top:14px;">
+            <label style="font-size:12px;font-weight:700;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.04em;">📝 对局笔记（对战复盘、精彩操作等）</label>
+            <textarea class="form-input" id="matchNotes" placeholder="例如：第三轮狼人自爆、预言家首夜验到狼..." rows="2" style="resize:vertical;margin-top:6px;"></textarea>
+        </div>
+
+        <button class="btn btn-primary btn-block" id="confirmBtn" style="margin-top:12px; display:none;" onclick="submitMatch()">✅ 确认记录</button>
+    </div>
+</div>
+
+{% if not players|length or not games|length %}
+<div class="guide-overlay" id="guideOverlay">
+    <div class="guide-card">
+        <div style="font-size:56px;margin-bottom:16px;animation:floatIcon 3s ease-in-out infinite;">🎮</div>
+        <h3>欢迎使用桌游排行</h3>
+        <p>还没有创建玩家或游戏，<br>请先完成初始设置再开始记录对局。</p>
+        <div style="text-align:left; font-size:13px;margin-bottom:8px;">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;color:var(--primary);"><span style="font-size:20px;">👤</span> 在下方输入名字添加 <strong>玩家</strong></div>
+            <div style="display:flex;align-items:center;gap:8px;color:var(--accent);"><span style="font-size:20px;">🎲</span> 已预置 <strong>阿瓦隆</strong> 和 <strong>狼人杀</strong></div>
+        </div>
+        <button class="btn btn-primary" onclick="document.getElementById('guideOverlay').style.display='none';document.getElementById('step2').classList.remove('disabled');">开始使用 →</button>
+    </div>
+</div>
+{% endif %}
+
+<script>
+let selectedGame = null;
+let gameRules = null;
+let selectedPlayers = {};
+let winner = null;
+let useElo = false;
+let loseMode = 'keep_bonus';
+let availableRoles = [];
+let availableActions = [];
+
+function updateProgress(step) {
+    const dots = document.querySelectorAll('.sp-dot');
+    const fill = document.getElementById('spFill');
+    dots.forEach(d => {
+        const s = parseInt(d.dataset.step);
+        d.classList.remove('done', 'active');
+        if (s < step) d.classList.add('done');
+        if (s === step) d.classList.add('active');
+    });
+    if (fill) fill.style.width = ((step - 1) / 2 * 100) + '%';
+}
+
+async function selectGame() {
+    const select = document.getElementById('gameSelect');
+    const gid = select.value;
+    if (!gid) return;
+
+    const rules = await api(`/api/games/${gid}/rules`);
+    const actions = await api(`/api/games/${gid}/actions`);
+    selectedGame = rules;
+    gameRules = rules;
+    useElo = rules.use_elo;
+    loseMode = rules.lose_mode || 'keep_bonus';
+    availableRoles = rules.enable_roles ? (rules.roles || []) : [];
+    availableActions = rules.enable_actions ? (actions || []) : [];
+
+    const roleInfo = rules.enable_roles && availableRoles.length > 0 ? ' &nbsp;🎭 <strong>' + availableRoles.length + '</strong>个角色' : '';
+    const actionInfo = rules.enable_actions && availableActions.length > 0 ? ' &nbsp;⚡ <strong>' + availableActions.length + '</strong>个操作' : '';
+    let loseRule = '';
+    if (!rules.use_elo) {
+        if (loseMode === 'zero') loseRule = ' &nbsp; 输 <strong>=0分</strong>（角色操作都不加）';
+        else if (loseMode === 'penalize_all') loseRule = ' &nbsp; 输 <strong>-' + rules.lose_penalty + '</strong>（角色操作变扣分）';
+        else loseRule = ' &nbsp; 输 <strong>-' + rules.lose_penalty + '</strong>';
+    }
+    document.getElementById('gameRules').innerHTML =
+        (rules.use_elo ? '📊 ELO模式：动态计算 ' : '规则：好人赢 <strong>+' + rules.good_win_score + '</strong> &nbsp; 坏人赢 <strong>+' + rules.evil_win_score + '</strong>' + loseRule) +
+        roleInfo + actionInfo;
+
+    document.getElementById('step2').classList.remove('disabled');
+    updateProgress(2);
+    selectedPlayers = {};
+    refreshSelectedArea();
+    // 显示操作提示
+    const hint = document.getElementById('playerSelectHint');
+    if (hint) hint.style.display = 'block';
+
+    // 根据ELO模式显示/隐藏玩家标签的ELO数值
+    document.querySelectorAll('#playerList .player-tag').forEach(tag => {
+        const eloEl = tag.querySelector('.elo-display');
+        if (rules.use_elo) {
+            if (!eloEl) {
+                const s = document.createElement('small');
+                s.className = 'elo-display';
+                s.style.cssText = 'color:#999;';
+                s.textContent = ' ' + (tag.dataset.elo || '1000');
+                tag.appendChild(s);
+            }
+        } else {
+            if (eloEl) eloEl.remove();
+        }
+    });
+}
+
+// ===== 玩家选择：点击切换 未选 → 好人 → 坏人 → 未选 =====
+function cyclePlayerTeam(el) {
+    const pid = el.dataset.pid;
+    const current = el.dataset.team;
+    if (current === 'good') {
+        // 好人 → 坏人
+        selectedPlayers[pid].team = 'evil';
+        el.dataset.team = 'evil';
+        el.className = 'player-tag selected evil';
+    } else if (current === 'evil') {
+        // 坏人 → 取消选中
+        delete selectedPlayers[pid];
+        el.dataset.team = '';
+        el.className = 'player-tag';
+    } else {
+        // 未选 → 好人
+        selectedPlayers[pid] = {
+            name: el.dataset.name, team: 'good',
+            elo: parseInt(el.dataset.elo) || 1000,
+            role_id: null, role_name: '',
+            custom_role: null
+        };
+        el.dataset.team = 'good';
+        el.className = 'player-tag selected good';
+    }
+    refreshSelectedArea();
+    updateStep3();
+}
+
+function changePlayerTeam(pid) {
+    if (!selectedPlayers[pid]) return;
+    const oldTeam = selectedPlayers[pid].team;
+    const newTeam = oldTeam === 'good' ? 'evil' : 'good';
+    selectedPlayers[pid].team = newTeam;
+    selectedPlayers[pid].role_id = null;
+    selectedPlayers[pid].role_name = '';
+    selectedPlayers[pid].custom_role = null;
+
+    const tag = document.querySelector(`#playerList .player-tag[data-pid="${pid}"]`);
+    if (tag) {
+        tag.dataset.team = newTeam;
+        tag.className = 'player-tag selected ' + newTeam;
+    }
+    refreshSelectedArea();
+}
+
+function assignRole(pid, value) {
+    if (!selectedPlayers[pid]) return;
+    if (value === 'custom') {
+        selectedPlayers[pid].role_id = null;
+        selectedPlayers[pid].role_name = '';
+        selectedPlayers[pid].custom_role = { name: '', bonus: 0 };
+        refreshSelectedArea();
+        setTimeout(() => {
+            const inp = document.getElementById('customRoleInput_' + pid);
+            if (inp) inp.focus();
+        }, 100);
+        return;
+    }
+    const roleId = parseInt(value);
+    if (!roleId) { selectedPlayers[pid].role_id = null; selectedPlayers[pid].role_name = ''; selectedPlayers[pid].custom_role = null; refreshSelectedArea(); return; }
+    const role = availableRoles.find(r => r.id === roleId);
+    if (!role) return;
+    // 仅对唯一角色阻止重复分配；非唯一角色（如忠臣/村民/狼人）允许多人
+    if (role.is_unique) {
+        for (const otherPid in selectedPlayers) {
+            if (otherPid != pid && selectedPlayers[otherPid].role_id === roleId) {
+                showToast(`角色「${role.name}」已被 ${selectedPlayers[otherPid].name} 使用`);
+                return;
+            }
+        }
+    }
+    selectedPlayers[pid].role_id = roleId;
+    selectedPlayers[pid].role_name = role.name;
+    selectedPlayers[pid].custom_role = null;
+    refreshSelectedArea();
+}
+
+function updateCustomRole(pid) {
+    const nameInput = document.getElementById('customRoleInput_' + pid);
+    const bonusInput = document.getElementById('customBonusInput_' + pid);
+    const name = nameInput ? nameInput.value.trim() : '';
+    const bonus = bonusInput ? parseInt(bonusInput.value) || 0 : 0;
+    if (selectedPlayers[pid] && selectedPlayers[pid].custom_role) {
+        selectedPlayers[pid].custom_role = { name, bonus };
+        selectedPlayers[pid].role_name = name || '自定义';
+    }
+}
+
+function removePlayer(pid) {
+    delete selectedPlayers[pid];
+    const tag = document.querySelector(`#playerList .player-tag[data-pid="${pid}"]`);
+    if (tag) { tag.dataset.team = ''; tag.className = 'player-tag'; }
+    refreshSelectedArea();
+    updateStep3();
+}
+
+function refreshSelectedArea() {
+    const area = document.getElementById('selectedArea');
+    const list = document.getElementById('selectedPlayersList');
+    const countEl = document.getElementById('teamCount');
+    const pids = Object.keys(selectedPlayers);
+
+    if (pids.length === 0) {
+        area.style.display = 'none';
+        if (countEl) countEl.textContent = '';
+        const saveBtn = document.getElementById('savePresetBtn');
+        if (saveBtn) saveBtn.style.display = 'none';
+        // 隐藏推荐面板
+        const recPanel = document.getElementById('roleRecommend');
+        if (recPanel) recPanel.style.display = 'none';
+        return;
+    }
+    area.style.display = 'block';
+    // 选够2人后隐藏操作提示
+    if (pids.length >= 2) {
+        const hint = document.getElementById('playerSelectHint');
+        if (hint) hint.style.display = 'none';
+    }
+    const goodCount = pids.filter(pid => selectedPlayers[pid].team === 'good').length;
+    const evilCount = pids.filter(pid => selectedPlayers[pid].team === 'evil').length;
+    if (countEl) countEl.textContent = goodCount + ' 好人  ' + evilCount + ' 坏人';
+
+    const saveBtn = document.getElementById('savePresetBtn');
+    if (saveBtn) saveBtn.style.display = pids.length >= 2 ? '' : 'none';
+
+    // 统计每个角色被使用的次数
+    const roleUsage = {};
+    for (const pid of pids) {
+        if (selectedPlayers[pid].role_id) {
+            const rid = selectedPlayers[pid].role_id;
+            roleUsage[rid] = (roleUsage[rid] || 0) + 1;
+        }
+    }
+
+    let html = '';
+    for (const pid of pids) {
+        const p = selectedPlayers[pid];
+        const teamColor = p.team === 'good' ? '#1976d2' : '#c62828';
+        const teamLabel = p.team === 'good' ? '好人' : '坏人';
+        const myRoles = availableRoles.filter(r => r.team === p.team);
+
+        let roleSelectHtml = '';
+        if (myRoles.length > 0) {
+            roleSelectHtml = `<select class="form-select" style="font-size:11px;width:auto;min-width:110px;padding:3px 6px;" onchange="assignRole('${pid}', this.value)">
+                <option value="">无角色</option>
+                ${myRoles.map(r => {
+                    const usageCount = roleUsage[r.id] || 0;
+                    const isAlreadyHolding = p.role_id === r.id;
+                    // 唯一角色且已被他人使用：禁用
+                    const blocked = r.is_unique && usageCount > 0 && !isAlreadyHolding;
+                    // 非唯一角色：显示使用次数
+                    let label = r.name;
+                    if (r.is_unique) {
+                        if (blocked) label += ' (已用)';
+                    } else {
+                        if (usageCount > 0) label += ' \xD7' + usageCount;
+                    }
+                    if (r.score_bonus > 0) label += ' +' + r.score_bonus + '分';
+                    return `<option value="${r.id}" ${isAlreadyHolding ? 'selected' : ''} ${blocked ? 'disabled' : ''}>${label}</option>`;
+                }).join('')}
+                <option value="custom" ${p.custom_role ? 'selected' : ''} style="border-top:1px solid #ddd;">自定义...</option>
+            </select>`;
+        } else {
+            roleSelectHtml = `<span style="font-size:10px;color:#999;">无预设角色</span>`;
+        }
+
+        let customHtml = '';
+        if (p.custom_role || myRoles.length === 0) {
+            customHtml = `<input class="form-input" id="customRoleInput_${pid}" placeholder="角色名" value="${p.custom_role ? p.custom_role.name : ''}" oninput="updateCustomRole('${pid}')" style="font-size:11px;width:90px;padding:3px 6px;">
+            <input class="form-input" id="customBonusInput_${pid}" type="number" value="${p.custom_role ? p.custom_role.bonus : '0'}" oninput="updateCustomRole('${pid}')" style="font-size:11px;width:46px;padding:3px 4px;" title="额外加分">`;
+            if (!p.custom_role) {
+                selectedPlayers[pid].custom_role = { name: '', bonus: 0 };
+                selectedPlayers[pid].role_name = '';
+            }
+        }
+
+        html += `
+        <div style="display:flex;align-items:center;gap:6px;padding:10px 12px;background:rgba(255,255,255,.8);border-radius:10px;border:1px solid #e2e8f0;flex-wrap:wrap;box-shadow:0 1px 3px rgba(0,0,0,.02);">
+            <strong style="min-width:50px;font-weight:700;">${p.name}</strong>
+            <span class="tag" style="background:${teamColor};color:#fff;cursor:pointer;font-size:11px;user-select:none;border-radius:20px;padding:4px 14px;font-weight:700;" onclick="changePlayerTeam('${pid}')" title="点击切换阵营">${teamLabel}</span>
+            ${useElo ? `<span style="font-size:10px;color:#999;">ELO ${p.elo}</span>` : ''}
+            ${roleSelectHtml}
+            ${customHtml}
+            <span style="flex:1;"></span>
+            <span style="cursor:pointer;color:#c62828;font-size:16px;line-height:1;" onclick="removePlayer('${pid}')" title="移除玩家">×</span>
+        </div>`;
+    }
+    list.innerHTML = html;
+}
+
+async function loadPreset() {
+    const pid = document.getElementById('presetSelect').value;
+    if (!pid) return;
+    const presets = await api('/api/presets');
+    const preset = presets.find(p => p.id === parseInt(pid));
+    if (!preset) return;
+
+    document.getElementById('gameSelect').value = preset.game_id;
+    await selectGame();
+
+    const config = JSON.parse(preset.config);
+    selectedPlayers = {};
+    for (const c of config) {
+        const pid = c.player_id;
+        selectedPlayers[pid] = {
+            name: '', team: c.team,
+            elo: parseInt(c.elo) || 1000,
+            role_id: c.role_id || null,
+            role_name: c.role_name || '',
+            custom_role: null
+        };
+    }
+
+    // 填充名字和ELO
+    const playersApi = await api('/api/players');
+    for (const pid in selectedPlayers) {
+        const found = playersApi.find(p => p.id === parseInt(pid));
+        if (found) {
+            selectedPlayers[pid].name = found.name;
+            selectedPlayers[pid].elo = found.elo_rating;
+            selectedPlayers[pid].avatar = found.avatar;
+        }
+    }
+
+    // 更新标签状态
+    document.querySelectorAll('#playerList .player-tag').forEach(tag => {
+        const tpid = tag.dataset.pid;
+        if (selectedPlayers[tpid]) {
+            const p = selectedPlayers[tpid];
+            tag.dataset.team = p.team;
+            tag.className = 'player-tag selected ' + p.team;
+        } else {
+            tag.dataset.team = '';
+            tag.className = 'player-tag';
+        }
+    });
+
+    refreshSelectedArea();
+    updateStep3();
+    document.getElementById('presetSelect').value = '';
+    showToast(`已加载预设「${preset.name}」`);
+}
+
+async function savePreset() {
+    if (Object.keys(selectedPlayers).length < 2) { showToast('至少需要2名玩家'); return; }
+    const name = prompt('预设名称（如：周五固定8人局）：');
+    if (!name) return;
+    const config = Object.entries(selectedPlayers).map(([pid, p]) => ({
+        player_id: parseInt(pid),
+        team: p.team,
+        elo: p.elo,
+        role_id: p.role_id,
+        role_name: p.role_name
+    }));
+    await api('/api/presets', 'POST', { name, game_id: selectedGame.id, config });
+    showToast('预设已保存');
+    setTimeout(() => location.reload(), 800);
+}
+
+async function addNewPlayer() {
+    const input = document.getElementById('newPlayerName');
+    const name = input.value.trim();
+    if (!name) return;
+    try {
+        const res = await api('/api/players', 'POST', { name });
+        // 检查是否已有此玩家的 tag
+        let tag = document.querySelector(`#playerList .player-tag[data-pid="${res.id}"]`);
+        if (!tag) {
+            const div = document.getElementById('playerList');
+            tag = document.createElement('span');
+            tag.className = 'player-tag selected good';
+            tag.dataset.pid = res.id; tag.dataset.name = res.name;
+            tag.dataset.elo = '1000'; tag.dataset.team = 'good';
+            tag.onclick = () => cyclePlayerTeam(tag);
+            tag.innerHTML = `🎮 ${res.name}`;
+            tag.title = '点击切换：未选 → 好人 → 坏人';
+            div.appendChild(tag);
+            // 闪烁动画提示
+            tag.style.animation = 'pulse 0.6s ease-in-out 3';
+            setTimeout(() => tag.style.animation = '', 1800);
+        }
+        // 如果还没选中，则选中
+        if (!selectedPlayers[res.id]) {
+            selectedPlayers[res.id] = { name: res.name, team: 'good', elo: 1000, role_id: null, role_name: '', custom_role: null };
+            tag.dataset.team = 'good';
+            tag.className = 'player-tag selected good';
+        }
+        input.value = '';
+        refreshSelectedArea(); updateStep3();
+        // 显示操作提示
+        const hint = document.getElementById('playerSelectHint');
+        if (hint) hint.style.display = 'block';
+        showToast(res.existed ? '已有此玩家，已自动选中为好人' : '玩家已添加！点击上方卡片切换阵营');
+    } catch(e) { showToast(e.error || '添加失败'); }
+}
+
+function updateStep3() {
+    const count = Object.keys(selectedPlayers).length;
+    if (count >= 2) {
+        document.getElementById('step3').classList.remove('disabled');
+        updateProgress(3);
+    } else {
+        document.getElementById('step3').classList.add('disabled');
+    }
+    // 人数>=5时显示角色推荐按钮
+    const recBtn = document.getElementById('roleRecommendBtn');
+    if (recBtn && count >= 5 && selectedGame) {
+        recBtn.style.display = '';
+    } else if (recBtn) {
+        recBtn.style.display = 'none';
+    }
+}
+
+let rolePresetCache = null;
+
+async function toggleRoleRecommend() {
+    const panel = document.getElementById('roleRecommend');
+    if (!panel) return;
+    const count = Object.keys(selectedPlayers).length;
+
+    // 如果已经展开，就收起
+    if (panel.style.display === 'block') {
+        panel.style.display = 'none';
+        return;
+    }
+
+    // 加载推荐配置
+    try {
+        if (!rolePresetCache) {
+            const allPresets = await api(`/api/games/${selectedGame.id}/role-presets`);
+            rolePresetCache = allPresets;
+        }
+
+        // 找最接近人数的预设
+        const preset = rolePresetCache.find(p => p.player_count === count)
+                    || rolePresetCache.filter(p => p.player_count <= count).slice(-1)[0];
+
+        if (!preset) {
+            panel.style.display = 'block';
+            panel.innerHTML = '<span style="color:#999;">暂无该人数的推荐配置</span>';
+            return;
+        }
+
+        // 当前已选的好人/坏人数
+        const goodCount = Object.values(selectedPlayers).filter(p => p.team === 'good').length;
+        const evilCount = Object.values(selectedPlayers).filter(p => p.team === 'evil').length;
+
+        let html = '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">';
+        html += `<strong>${count}人局推荐配置</strong>`;
+        html += `<span style="font-size:10px;color:#999;">预设: 好人${preset.good_count} + 坏人${preset.evil_count} | 当前: 好人${goodCount} + 坏人${evilCount}</span>`;
+        html += '</div>';
+
+        html += '<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px;">';
+        const config = preset.config;
+        for (const item of config) {
+            const roleInfo = availableRoles.find(r => r.name === item[0]);
+            const team = roleInfo ? roleInfo.team : 'good';
+            const bg = team === 'good' ? '#ede9fe' : '#fee2e2';
+            const color = team === 'good' ? '#5b21b6' : '#991b1b';
+            html += `<span style="background:${bg};color:${color};padding:2px 8px;border-radius:12px;font-size:11px;">${item[0]}${item[1]>1?' \xD7'+item[1]:''}</span>`;
+        }
+        html += '</div>';
+
+        // 快速分配按钮
+        html += '<div style="display:flex;gap:4px;flex-wrap:wrap;">';
+        html += '<button class="btn btn-outline btn-sm" onclick="applyRolePreset()" style="font-size:11px;">一键应用推荐</button>';
+        html += '<span style="font-size:10px;color:#999;line-height:2;">（将尝试按推荐分配角色，需手动调整阵营人数）</span>';
+        html += '</div>';
+
+        panel.innerHTML = html;
+        panel.style.display = 'block';
+    } catch(e) {
+        panel.style.display = 'block';
+        panel.innerHTML = '<span style="color:#999;">加载推荐失败</span>';
+    }
+}
+
+async function applyRolePreset() {
+    const count = Object.keys(selectedPlayers).length;
+    if (!rolePresetCache) return;
+
+    const preset = rolePresetCache.find(p => p.player_count === count)
+                || rolePresetCache.filter(p => p.player_count <= count).slice(-1)[0];
+    if (!preset) return;
+
+    const config = preset.config;
+    const pids = Object.keys(selectedPlayers);
+
+    // 自动按预设比例分配阵营（预设已指定好人数/坏人数）
+    const needGood = preset.good_count || 0;
+    const needEvil = preset.evil_count || 0;
+    const totalNeed = needGood + needEvil;
+
+    let goodPids = [], evilPids = [];
+
+    if (totalNeed && totalNeed <= pids.length) {
+        // 按预设人数分配阵营，保持玩家当前顺序
+        // 先找出当前已是正确阵营的玩家
+        const curGood = pids.filter(pid => selectedPlayers[pid].team === 'good');
+        const curEvil = pids.filter(pid => selectedPlayers[pid].team === 'evil');
+        const neutral = pids.filter(pid => !['good', 'evil'].includes(selectedPlayers[pid].team));
+
+        // 尽量保留已有阵营匹配
+        const keptGood = curGood.slice(0, needGood);
+        let goodCount = keptGood.length;
+        const overflowGood = curGood.slice(needGood);
+        const keptEvil = curEvil.slice(0, needEvil);
+        let evilCount = keptEvil.length;
+        const overflowEvil = curEvil.slice(needEvil);
+        const pool = [...overflowGood, ...overflowEvil, ...neutral];
+
+        // 从溢出池中补足
+        for (const pid of pool) {
+            if (goodCount < needGood) { selectedPlayers[pid].team = 'good'; goodCount++; }
+            else if (evilCount < needEvil) { selectedPlayers[pid].team = 'evil'; evilCount++; }
+        }
+
+        goodPids = pids.filter(pid => selectedPlayers[pid].team === 'good');
+        evilPids = pids.filter(pid => selectedPlayers[pid].team === 'evil');
+    } else {
+        // 无法按预设分：保留现有阵营
+        goodPids = pids.filter(pid => selectedPlayers[pid].team === 'good');
+        evilPids = pids.filter(pid => selectedPlayers[pid].team === 'evil');
+    }
+
+    // 按阵营分配角色
+    const goodRoles = [], evilRoles = [];
+    for (const item of config) {
+        const roleInfo = availableRoles.find(r => r.name === item[0]);
+        if (!roleInfo) continue;
+        for (let i = 0; i < item[1]; i++) {
+            if (roleInfo.team === 'good') goodRoles.push(roleInfo);
+            else evilRoles.push(roleInfo);
+        }
+    }
+
+    // 分配好人
+    for (let i = 0; i < Math.min(goodRoles.length, goodPids.length); i++) {
+        const pid = goodPids[i];
+        selectedPlayers[pid].role_id = goodRoles[i].id;
+        selectedPlayers[pid].role_name = goodRoles[i].name;
+        selectedPlayers[pid].custom_role = null;
+    }
+    // 分配坏人
+    for (let i = 0; i < Math.min(evilRoles.length, evilPids.length); i++) {
+        const pid = evilPids[i];
+        selectedPlayers[pid].role_id = evilRoles[i].id;
+        selectedPlayers[pid].role_name = evilRoles[i].name;
+        selectedPlayers[pid].custom_role = null;
+    }
+
+    // 更新玩家标签视觉效果
+    document.querySelectorAll('#playerList .player-tag').forEach(tag => {
+        const tpid = tag.dataset.pid;
+        const p = selectedPlayers[tpid];
+        if (p) {
+            tag.dataset.team = p.team;
+            tag.className = 'player-tag selected ' + p.team;
+        }
+    });
+
+    refreshSelectedArea();
+    showToast(`已应用${preset.player_count}人推荐：好人${needGood} + 坏人${needEvil}`);
+}
+
+// 自定义操作列表（存储临时创建的操作）
+let customActions = [];  // {id: counter, name, bonus, player_id}
+
+function setWinner(w) {
+    winner = w;
+    customActions = [];
+    document.getElementById('confirmBtn').style.display = 'block';
+
+    // 显示操作加分区（按开关控制）
+    const actionArea = document.getElementById('actionArea');
+    const actionList = document.getElementById('actionList');
+    if (availableActions.length > 0) {
+        actionArea.style.display = 'block';
+    } else {
+        actionArea.style.display = 'none';
+    }
+
+    let html = '';
+    // 构建带角色名的玩家选项（按阵营分组）
+    function playerOptions() {
+        const goodPlayers = [], evilPlayers = [];
+        Object.entries(selectedPlayers).forEach(([pid, p]) => {
+            let label = p.name;
+            if (p.role_name) label += ' [' + p.role_name + ']';
+            label += ' (' + (p.team === 'good' ? '好' : '坏') + ')';
+            (p.team === 'good' ? goodPlayers : evilPlayers).push({ pid, label });
+        });
+        let html = '';
+        if (goodPlayers.length > 0) {
+            html += `<optgroup label="好人阵营" style="color:#1976d2;font-weight:bold;">`;
+            html += goodPlayers.map(p => `<option value="${p.pid}">🟢 ${p.label}</option>`).join('');
+            html += `</optgroup>`;
+        }
+        if (evilPlayers.length > 0) {
+            html += `<optgroup label="坏人阵营" style="color:#c62828;font-weight:bold;">`;
+            html += evilPlayers.map(p => `<option value="${p.pid}">🔴 ${p.label}</option>`).join('');
+            html += `</optgroup>`;
+        }
+        return html;
+    }
+
+    // 预设操作
+    if (availableActions.length > 0) {
+        html += availableActions.map(a => `
+            <label style="display:flex;align-items:center;gap:4px;background:#f8f9fa;border-radius:10px;padding:4px 10px;font-size:11px;cursor:pointer;border:1px solid #e0e0e0;">
+                <input type="checkbox" value="${a.id}" data-action-bonus="${a.score_bonus}" onchange="updateActionPreview()" style="margin:0;">
+                ${a.name} <span style="color:#2e7d32;">+${a.score_bonus}</span>
+                <select class="form-select action-player-select" style="font-size:10px;width:auto;min-width:80px;padding:1px 4px;margin-left:4px;" onchange="updateActionPreview()">
+                    <option value="">-- 选择 --</option>
+                    ${playerOptions()}
+                </select>
+            </label>
+        `).join('');
+    }
+    // 自定义操作入口
+    html += `
+        <div id="customActionRow" style="display:flex;align-items:center;gap:6px;background:linear-gradient(135deg,#fff7ed,#fff3e0);border-radius:12px;padding:8px 14px;font-size:11px;border:1.5px dashed #fdba74;">
+            <span>✏️</span>
+            <input class="form-input" id="customActionName" placeholder="自定义操作名" style="font-size:10px;width:110px;padding:2px 4px;" oninput="document.getElementById('addCustomActionBtn').disabled=!this.value.trim()">
+            <input class="form-input" id="customActionBonus" type="number" value="3" style="font-size:10px;width:50px;padding:2px 4px;" title="额外加分">
+            <select class="form-select" id="customActionPlayer" style="font-size:10px;width:auto;min-width:80px;padding:1px 4px;">
+                <option value="">-- 选择 --</option>
+                ${playerOptions()}
+            </select>
+            <button class="btn btn-outline btn-sm" id="addCustomActionBtn" style="font-size:10px;padding:2px 6px;" disabled onclick="addCustomAction()">添加</button>
+        </div>
+    `;
+    // 已添加的自定义操作
+    html += `<div id="customActionsContainer" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;"></div>`;
+    actionList.innerHTML = html;
+
+    updateActionPreview();
+}
+
+function addCustomAction() {
+    const nameInput = document.getElementById('customActionName');
+    const bonusInput = document.getElementById('customActionBonus');
+    const playerSelect = document.getElementById('customActionPlayer');
+    const name = nameInput.value.trim();
+    const bonus = parseInt(bonusInput.value) || 0;
+    const pid = playerSelect.value;
+    if (!name) { showToast('请输入操作名'); return; }
+    if (!pid) { showToast('请选择关联玩家'); return; }
+
+    customActions.push({ id: Date.now(), name, bonus, player_id: parseInt(pid) });
+    nameInput.value = '';
+    document.getElementById('addCustomActionBtn').disabled = true;
+    renderCustomActions();
+    updateActionPreview();
+}
+
+function removeCustomAction(idx) {
+    customActions.splice(idx, 1);
+    renderCustomActions();
+    updateActionPreview();
+}
+
+function renderCustomActions() {
+    const container = document.getElementById('customActionsContainer');
+    if (!container) return;
+    container.innerHTML = customActions.map((ca, i) => {
+        const p = selectedPlayers[ca.player_id];
+        let playerLabel = p ? p.name : '?';
+        if (p && p.role_name) playerLabel += ' [' + p.role_name + ']';
+        const teamTag = p ? (p.team === 'good' ? '好' : '坏') : '';
+        const teamColor = (p && p.team === 'good') ? '#1976d2' : '#c62828';
+        return `
+        <div style="display:flex;align-items:center;gap:4px;background:linear-gradient(135deg,#fff7ed,#fff3e0);border-radius:10px;padding:4px 10px;font-size:11px;border:1px solid #fed7aa;">
+            ⚡ <strong>${ca.name}</strong> +${ca.bonus}
+            <span style="color:#999;">→</span>
+            <span style="color:${teamColor};font-weight:500;">${playerLabel}</span>
+            <span style="color:#c62828;cursor:pointer;margin-left:2px;" onclick="removeCustomAction(${i})">×</span>
+        </div>`;
+    }).join('');
+}
+
+function updateActionPreview() {
+    const div = document.getElementById('scorePreview');
+    let html = '<div class="score-preview"><div class="score-row"><strong>📊 得分预览</strong> ' + (useElo ? '<span style="font-size:10px;color:#999;">ELO模式</span>' : '') + '</div>';
+
+    let goodElos = [], evilElos = [];
+    for (const pid in selectedPlayers) {
+        const p = selectedPlayers[pid];
+        (p.team === 'good' ? goodElos : evilElos).push(p.elo);
+    }
+    const goodAvg = goodElos.reduce((a,b)=>a+b,0)/goodElos.length || 1000;
+    const evilAvg = evilElos.reduce((a,b)=>a+b,0)/evilElos.length || 1000;
+
+    // 收集操作加分（预设 + 自定义）
+    let actionScores = {};
+    document.querySelectorAll('#actionList input[type="checkbox"]:checked').forEach(cb => {
+        const select = cb.parentElement.querySelector('.action-player-select');
+        const pid = select ? select.value : '';
+        if (pid) {
+            actionScores[pid] = (actionScores[pid] || 0) + parseInt(cb.dataset.actionBonus);
+        }
+    });
+    customActions.forEach(ca => {
+        if (ca.player_id) {
+            actionScores[ca.player_id] = (actionScores[ca.player_id] || 0) + ca.bonus;
+        }
+    });
+
+    for (const pid in selectedPlayers) {
+        const p = selectedPlayers[pid];
+        let score;
+        if (!useElo) {
+            if (p.team === winner) {
+                score = p.team === 'good' ? gameRules.good_win_score : gameRules.evil_win_score;
+            } else {
+                if (loseMode === 'zero') score = 0;
+                else score = -gameRules.lose_penalty;
+            }
+        } else {
+            const oppAvg = p.team === 'good' ? evilAvg : goodAvg;
+            const expected = 1/(1 + Math.pow(10, (oppAvg - p.elo)/400));
+            const actual = p.team === winner ? 1 : 0;
+            score = Math.round(32 * (actual - expected));
+        }
+        let roleBonus = 0;
+        if (p.role_id) {
+            const role = availableRoles.find(r => r.id === p.role_id);
+            if (role) roleBonus = role.score_bonus;
+        } else if (p.custom_role) {
+            roleBonus = p.custom_role.bonus;
+        }
+        let actionBonus = (actionScores[pid] || 0);
+        // 失败方根据 loseMode 调整加分
+        if (!useElo && p.team !== winner) {
+            if (loseMode === 'zero') {
+                roleBonus = 0;
+                actionBonus = 0;
+            } else if (loseMode === 'penalize_all') {
+                roleBonus = -roleBonus;
+                actionBonus = -actionBonus;
+            }
+        }
+        score += roleBonus;
+        score += actionBonus;
+
+        const cls = score >= 0 ? 'score-positive' : 'score-negative';
+        const sign = score >= 0 ? '+' : '';
+        const roleTag = p.role_name ? ` <small style="color:#999;">[${p.role_name}${roleBonus>0?' +'+roleBonus:roleBonus<0?' '+roleBonus:''}]</small>` : '';
+        const actTag = actionBonus !== 0 ? ` <small style="color:#ff6f00;">⚡${actionBonus>0?'+':''}${actionBonus}</small>` : '';
+        html += `<div class="score-row"><span>${p.name} <span class="tag ${p.team==='good'?'tag-good':'tag-evil'}">${p.team==='good'?'好人':'坏人'}</span>${roleTag}${actTag}</span><span class="${cls}">${sign}${score}</span></div>`;
+    }
+    html += '</div>';
+    div.innerHTML = html;
+}
+
+async function submitMatch() {
+    if (!selectedGame || !winner || Object.keys(selectedPlayers).length < 2) {
+        showToast('请完成所有步骤'); return;
+    }
+    const playersData = Object.entries(selectedPlayers).map(([pid, p]) => {
+        const d = { player_id: parseInt(pid), team: p.team, role_id: p.role_id || null };
+        if (p.custom_role && p.custom_role.name) {
+            d.custom_role_name = p.custom_role.name;
+            d.custom_role_bonus = p.custom_role.bonus;
+        }
+        return d;
+    });
+    const hasGood = playersData.some(p => p.team === 'good');
+    const hasEvil = playersData.some(p => p.team === 'evil');
+    if (!hasGood || !hasEvil) { showToast('好人和坏人阵营都需要有人'); return; }
+
+    // 未选角色提醒（仍允许继续）
+    const noRolePlayers = Object.entries(selectedPlayers)
+        .filter(([pid, p]) => !p.role_id && !(p.custom_role && p.custom_role.name))
+        .map(([pid, p]) => p.name);
+    if (noRolePlayers.length > 0) {
+        const confirmed = confirm(
+            '以下玩家未分配角色，该局不会获得角色加分：\n\n' +
+            noRolePlayers.slice(0, 5).join('、') +
+            (noRolePlayers.length > 5 ? ` 等${noRolePlayers.length}人` : '') +
+            '\n\n确定继续记录？'
+        );
+        if (!confirmed) return;
+    }
+
+    // 收集操作（预设 + 自定义）
+    const actionsData = [];
+    document.querySelectorAll('#actionList input[type="checkbox"]:checked').forEach(cb => {
+        const select = cb.parentElement.querySelector('.action-player-select');
+        if (select && select.value) {
+            actionsData.push({ action_id: parseInt(cb.value), player_id: parseInt(select.value) });
+        }
+    });
+    // 自定义操作
+    customActions.forEach(ca => {
+        actionsData.push({
+            custom_action_name: ca.name,
+            custom_action_bonus: ca.bonus,
+            player_id: ca.player_id
+        });
+    });
+
+    try {
+        const notes = document.getElementById('matchNotes').value.trim();
+        const result = await api('/api/matches', 'POST', {
+            game_id: selectedGame.id, winner: winner,
+            players: playersData, actions: actionsData,
+            notes: notes
+        });
+        let msg = '对局记录成功！';
+        if (result.new_achievements) {
+            const allNew = Object.values(result.new_achievements).flat();
+            if (allNew.length) msg += ' 🏅 ' + allNew.join(', ');
+        }
+        showToast(msg);
+        setTimeout(() => location.href = '/', 1200);
+    } catch(e) { showToast(e.error || '保存失败'); }
+}
+</script>
+
+{% endblock %}
