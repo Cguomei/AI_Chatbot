@@ -668,6 +668,15 @@
             <span style="color:var(--text-muted);">·</span>
             <span style="color:var(--text-muted);">用数据记录每一场精彩对局</span>
         </div>
+        {% if public_url %}
+        <div style="margin-top:10px;font-size:12px;">
+            🔗 公网地址：
+            <a href="{{ public_url }}" target="_blank" style="color:#6366f1;word-break:break-all;"
+               onclick="navigator.clipboard.writeText('{{ public_url }}');showToast('已复制公网地址！');return false;"
+               title="点击复制链接">{{ public_url }}</a>
+            <span style="color:var(--text-muted);margin-left:8px;">（点击复制，发给任何人即可访问）</span>
+        </div>
+        {% endif %}
     </footer>
 
     <div class="toast" id="toast"></div>

@@ -142,11 +142,13 @@ def render_template(name: str, request: Request, context: dict = None) -> HTMLRe
     """渲染模板，绕过 Starlette 0.50 的 cache bug"""
     ctx = dict(context) if context else {}
     ctx.setdefault("request", request)
+    ctx.setdefault("public_url", _PUBLIC_URL["url"])
     template = _jinja_env.get_template(name)
     return HTMLResponse(template.render(**ctx))
 
 
 ELO_K = 32  # ELO K因子
+_PUBLIC_URL = {"url": None}  # 公网隧道地址，--share 时赋值（用dict避开global声明限制）
 
 
 # ==================== Excel 导出样式工具 ====================
@@ -2056,10 +2058,10 @@ if __name__ == "__main__":
                     ngrok_token = os.environ.get("NGROK_AUTHTOKEN", "")
                     if ngrok_token:
                         conf.get_default().auth_token = ngrok_token
-                    public_url = ngrok.connect(port, "http").public_url
-                    _crash_log(f"init: ngrok tunnel OK -> {public_url}")
+                    _PUBLIC_URL["url"] = ngrok.connect(port, "http").public_url
+                    _crash_log(f"init: ngrok tunnel OK -> {_PUBLIC_URL['url']}")
                     safe_print("")
-                    safe_print(f"  公网地址: {public_url}")
+                    safe_print(f"  公网地址: {_PUBLIC_URL['url']}")
                     safe_print("  把这个链接发给任何人即可访问！")
                     safe_print("-" * 50)
                     safe_print("")
