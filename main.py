@@ -1951,37 +1951,86 @@ if __name__ == "__main__":
 
         # --share: 启动 ngrok 公网隧道
         if use_share:
-            _crash_log("init: --share enabled, starting ngrok tunnel...")
+            _crash_log("init: --share enabled, preparing ngrok tunnel...")
             safe_print("")
             safe_print("-" * 50)
-            safe_print("  Starting public tunnel (ngrok)...")
-            safe_print("  First run may download ngrok, please wait...")
+            safe_print("  公网隧道 (ngrok)")
+            safe_print("-" * 50)
+            safe_print("  需要借助 ngrok 将本地端口暴露到公网。")
+            safe_print("  ngrok 是来自 https://ngrok.com 的合法开源工具。")
+            safe_print("")
+
+            do_connect = False
             try:
+                import shutil as _shutil
                 from pyngrok import ngrok, conf
-                # 如果用户设了 NGROK_AUTHTOKEN 环境变量就用
-                ngrok_token = os.environ.get("NGROK_AUTHTOKEN", "")
-                if ngrok_token:
-                    conf.get_default().auth_token = ngrok_token
-                public_url = ngrok.connect(port, "http").public_url
-                _crash_log(f"init: ngrok tunnel OK -> {public_url}")
-                safe_print(f"  Public:   {public_url}")
-                safe_print("  Share this link with anyone!")
-                safe_print("-" * 50)
-                safe_print("")
+
+                # 检查 ngrok 程序是否已安装（PATH 或常见位置）
+                ngrok_path = _shutil.which("ngrok") or _shutil.which("ngrok.exe")
+                if not ngrok_path:
+                    # 也查 pyngrok 的默认安装目录
+                    ngrok_default = os.path.join(os.path.expanduser("~"), ".pyngrok")
+                    # pyngrok 内部路径: ~/.pyngrok/ngrok 或 ngrok.exe
+                    for _ext in ("", ".exe"):
+                        _p = os.path.join(ngrok_default, "ngrok" + _ext)
+                        if os.path.exists(_p):
+                            ngrok_path = _p
+                            break
+
+                if ngrok_path:
+                    safe_print("  检测到 ngrok 已安装，直接启动隧道...")
+                    do_connect = True
+                else:
+                    safe_print("  未检测到 ngrok，首次使用将自动下载 (~10MB)。")
+                    safe_print("  下载后安装到用户目录，仅本程序使用。")
+                    safe_print("")
+                    safe_print("  如不放心，可手动安装后重试：")
+                    safe_print("    https://ngrok.com/download")
+                    safe_print("")
+                    safe_print("-" * 50)
+                    print("    按 Enter 同意下载，输入 n 取消 > ", end="", flush=True)
+                    try:
+                        choice = input().strip().lower()
+                    except (EOFError, KeyboardInterrupt):
+                        choice = "n"
+                    if choice in ("n", "no"):
+                        safe_print("    已取消。可就近访问（局域网内仍可连接）。")
+                        _crash_log("init: user declined ngrok download")
+                    else:
+                        do_connect = True
+                        safe_print("    正在下载 ngrok... 请稍候。")
+                        _crash_log("init: user accepted, downloading ngrok...")
             except ImportError:
                 _crash_log("init: pyngrok not installed")
-                safe_print("  [ERROR] pyngrok library not found.")
-                safe_print("  Install: pip install pyngrok")
-                safe_print("  Then run with --share again.")
+                safe_print("  pyngrok 库未找到，无法使用 --share。")
+                safe_print("  可就近访问（局域网内仍可连接）。")
                 safe_print("-" * 50)
                 safe_print("")
             except Exception as _ne:
-                _crash_log(f"init: ngrok failed: {_ne}")
-                safe_print(f"  [ERROR] ngrok tunnel failed: {_ne}")
-                safe_print("  Make sure you have internet access.")
-                safe_print("  You can still use the local address above.")
+                _crash_log(f"init: ngrok check failed: {_ne}")
+                safe_print(f"  检查失败: {_ne}")
+                safe_print("  可就近访问（局域网内仍可连接）。")
                 safe_print("-" * 50)
                 safe_print("")
+
+            if do_connect:
+                try:
+                    ngrok_token = os.environ.get("NGROK_AUTHTOKEN", "")
+                    if ngrok_token:
+                        conf.get_default().auth_token = ngrok_token
+                    public_url = ngrok.connect(port, "http").public_url
+                    _crash_log(f"init: ngrok tunnel OK -> {public_url}")
+                    safe_print("")
+                    safe_print(f"  公网地址: {public_url}")
+                    safe_print("  把这个链接发给任何人即可访问！")
+                    safe_print("-" * 50)
+                    safe_print("")
+                except Exception as _ne:
+                    _crash_log(f"init: ngrok failed: {_ne}")
+                    safe_print(f"  [错误] 隧道启动失败: {_ne}")
+                    safe_print("  可就近访问（局域网内仍可连接）。")
+                    safe_print("-" * 50)
+                    safe_print("")
 
         if open_browser:
             _crash_log("init: server ready, opening browser...")

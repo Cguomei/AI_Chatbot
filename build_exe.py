@@ -10,7 +10,7 @@
 import os, sys, subprocess
 
 APP_NAME = "桌游排行"
-VERSION = "1.0.6"
+VERSION = "1.0.7"
 EXE_NAME = f"{APP_NAME}-v{VERSION}"
 
 def step(msg):
