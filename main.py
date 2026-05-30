@@ -1956,8 +1956,16 @@ if __name__ == "__main__":
             safe_print("-" * 50)
             safe_print("  公网隧道 (ngrok)")
             safe_print("-" * 50)
-            safe_print("  需要借助 ngrok 将本地端口暴露到公网。")
-            safe_print("  ngrok 是来自 https://ngrok.com 的合法开源工具。")
+            safe_print("  默认情况下，只有和你在同一个 WiFi / 局域网的人")
+            safe_print("  才能访问这个排行榜（比如同一个路由器下的设备）。")
+            safe_print("")
+            safe_print("  开启公网隧道后，会生成一个 https 公网链接，发给")
+            safe_print("  任何人（无论在哪、用什么网络）都能打开。")
+            safe_print("")
+            safe_print("  不开公网的话：同一个 WiFi 下照常访问，不影响。")
+            safe_print("  开了公网的好处：外地/异网的朋友也能连进来。")
+            safe_print("")
+            safe_print("  借助 ngrok 实现（https://ngrok.com，合法工具）。")
             safe_print("")
 
             do_connect = False
@@ -1994,7 +2002,7 @@ if __name__ == "__main__":
                     except (EOFError, KeyboardInterrupt):
                         choice = "n"
                     if choice in ("n", "no"):
-                        safe_print("    已取消。可就近访问（局域网内仍可连接）。")
+                        safe_print("    已取消。就可用局域网模式（同 WiFi 下照常访问）。")
                         _crash_log("init: user declined ngrok download")
                     else:
                         do_connect = True
