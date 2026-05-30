@@ -100,6 +100,15 @@ if os.path.exists(exe_path):
     size_mb = os.path.getsize(exe_path) / (1024 * 1024)
     print(f"  EXE: {exe_path}")
     print(f"  Size: {size_mb:.1f} MB")
+
+    # 复制说明书到 dist
+    import shutil
+    manual_src = "使用说明.txt"
+    manual_dst = os.path.join(dist_dir, "使用说明.txt")
+    if os.path.exists(manual_src):
+        shutil.copy2(manual_src, manual_dst)
+        print(f"  Manual: {manual_dst}")
+
     print(f"\n  Double-click to run, open http://127.0.0.1:8000")
     print(f"  Admin: admin / admin123")
 else:
