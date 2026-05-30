@@ -1916,13 +1916,43 @@ if __name__ == "__main__":
         safe_print("=" * 50)
         safe_print("  Board Game Ranking System")
         safe_print("=" * 50)
-        safe_print(f"  Local:    http://127.0.0.1:{port}")
-        safe_print(f"  Network:  http://{local_ip}:{port}")
+        safe_print(f"  This PC:  http://127.0.0.1:{port}")
+        safe_print(f"  Phone:    http://{local_ip}:{port}")
         safe_print(f"  Admin:    http://127.0.0.1:{port}/admin")
         safe_print(f"  Account:  admin / admin123")
         safe_print("-" * 50)
+        safe_print("  Phone can't connect? Check:")
+        safe_print("    1) Same WiFi as this PC")
+        safe_print("    2) Use the Phone address above")
+        safe_print("    3) If still blocked: run as admin once")
+        safe_print("-" * 50)
         safe_print("  Press Ctrl+C to stop")
         safe_print("=" * 50)
+
+        # 尝试添加 Windows 防火墙例外（让手机能连进来）
+        if host == "0.0.0.0":
+            _crash_log("init: adding firewall rule...")
+            try:
+                import subprocess as _sp
+                exe_path = sys.executable
+                rule_name = "桌游排行 HTTP Server"
+                # 先删旧的再添加，避免重复
+                _sp.run(
+                    f'netsh advfirewall firewall delete rule name="{rule_name}"',
+                    shell=True, capture_output=True, timeout=5
+                )
+                result = _sp.run(
+                    f'netsh advfirewall firewall add rule name="{rule_name}" '
+                    f'dir=in action=allow program="{exe_path}" '
+                    f'protocol=TCP localport={port} enable=yes',
+                    shell=True, capture_output=True, timeout=5
+                )
+                if result.returncode == 0:
+                    _crash_log("init: firewall rule added OK")
+                else:
+                    _crash_log(f"init: firewall rule failed (may need admin): {result.stderr}")
+            except Exception as _fe:
+                _crash_log(f"init: firewall rule exception: {_fe}")
 
         _crash_log("init: importing uvicorn...")
         import uvicorn
