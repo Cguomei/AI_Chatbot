@@ -1878,11 +1878,34 @@ if __name__ == "__main__":
     try:
         host = "0.0.0.0"
         port = 8000
-        for i, arg in enumerate(sys.argv):
+        open_browser = True
+        browser_path = None
+
+        i = 1
+        while i < len(sys.argv):
+            arg = sys.argv[i]
             if arg == "--local":
                 host = "127.0.0.1"
-            elif arg == "-p" and i + 1 < len(sys.argv):
-                port = int(sys.argv[i + 1])
+            elif arg in ("-p", "--port") and i + 1 < len(sys.argv):
+                i += 1
+                port = int(sys.argv[i])
+            elif arg in ("-b", "--browser") and i + 1 < len(sys.argv):
+                i += 1
+                browser_path = sys.argv[i]
+            elif arg in ("--no-browser", "-nb"):
+                open_browser = False
+            elif arg in ("-h", "--help"):
+                safe_print("Usage: 桌游排行.exe [options]")
+                safe_print("")
+                safe_print("Options:")
+                safe_print("  -p, --port PORT      HTTP 端口 (默认 8000)")
+                safe_print("  -b, --browser PATH   指定浏览器路径")
+                safe_print("  --local              仅监听 127.0.0.1")
+                safe_print("  --no-browser, -nb    不自动打开浏览器")
+                safe_print("  -h, --help           显示此帮助")
+                safe_print("")
+                sys.exit(0)
+            i += 1
 
         local_ip = get_local_ip()
 
@@ -1916,22 +1939,39 @@ if __name__ == "__main__":
 
         # 等服务器就绪后打开浏览器
         server_ready.wait(timeout=3)
-        _crash_log("init: server ready, opening browser...")
         import time
         time.sleep(0.8)  # 给 uvicorn 一点时间真正绑定端口
 
         url = f"http://127.0.0.1:{port}"
-        _crash_log(f"init: opening browser -> {url}")
-        safe_print(f"  Opening browser: {url}")
 
-        # Windows 上直接用 os.startfile，比 webbrowser.open 更可靠
-        try:
-            os.startfile(url)
-            _crash_log("init: os.startfile OK")
-        except Exception as _be:
-            _crash_log(f"init: os.startfile failed: {_be}")
-            import webbrowser
-            webbrowser.open(url)
+        if open_browser:
+            _crash_log("init: server ready, opening browser...")
+            _crash_log(f"init: opening browser -> {url}")
+            safe_print(f"  Opening browser: {url}")
+
+            if browser_path:
+                # 用户指定了浏览器
+                import subprocess
+                _crash_log(f"init: launching custom browser: {browser_path}")
+                try:
+                    subprocess.Popen([browser_path, url])
+                    _crash_log("init: custom browser OK")
+                except Exception as _be:
+                    _crash_log(f"init: custom browser failed: {_be}")
+                    safe_print(f"  Browser failed, trying default...")
+                    os.startfile(url)
+            else:
+                # 系统默认浏览器
+                try:
+                    os.startfile(url)
+                    _crash_log("init: os.startfile OK")
+                except Exception as _be:
+                    _crash_log(f"init: os.startfile failed: {_be}")
+                    import webbrowser
+                    webbrowser.open(url)
+        else:
+            _crash_log("init: --no-browser, skipping browser")
+            safe_print(f"  Open manually: {url}")
 
         # 主线程等待
         try:
