@@ -918,6 +918,83 @@ async def delete_match(request: Request, match_id: int):
     return {"success": True}
 
 
+# ==================== EXE 启动入口 ====================
+if __name__ == "__main__":
+    import socket
+
+    def safe_print(msg, fallback=""):
+        try:
+            print(msg)
+        except (UnicodeEncodeError, UnicodeDecodeError):
+            if fallback:
+                print(fallback)
+
+    def get_local_ip():
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.connect(("8.8.8.8", 80))
+            ip = s.getsockname()[0]
+            s.close()
+            return ip
+        except Exception:
+            return "127.0.0.1"
+
+    exit_code = 0
+    try:
+        host = "0.0.0.0"
+        port = 8000
+        for i, arg in enumerate(sys.argv):
+            if arg == "--local":
+                host = "127.0.0.1"
+            elif arg == "-p" and i + 1 < len(sys.argv):
+                port = int(sys.argv[i + 1])
+
+        local_ip = get_local_ip()
+
+        safe_print("=" * 50)
+        safe_print("  Board Game Ranking System")
+        safe_print("=" * 50)
+        safe_print(f"  Local:    http://127.0.0.1:{port}")
+        safe_print(f"  Network:  http://{local_ip}:{port}")
+        safe_print(f"  Admin:    http://127.0.0.1:{port}/admin")
+        safe_print(f"  Account:  admin / admin123")
+        safe_print("-" * 50)
+        safe_print("  Press Ctrl+C to stop")
+        safe_print("=" * 50)
+
+        import uvicorn
+        uvicorn.run(app, host=host, port=port, log_level="warning")
+
+    except KeyboardInterrupt:
+        safe_print("\n  Stopped.")
+    except Exception as e:
+        safe_print("")
+        safe_print("=" * 50)
+        safe_print("  ERROR: Failed to start !")
+        safe_print("=" * 50)
+        safe_print(f"  {e}")
+        try:
+            import traceback
+            tb = traceback.format_exc()
+            safe_print(tb)
+        except Exception:
+            print(f"\n  Error: {e}")
+        safe_print("-" * 50)
+        safe_print("  Tips:")
+        safe_print("  1. Port 8000 may be in use")
+        safe_print("  2. Antivirus may be blocking")
+        safe_print("=" * 50)
+        exit_code = 1
+    finally:
+        if exit_code != 0:
+            try:
+                input("\n  Press Enter to exit...")
+            except (EOFError, KeyboardInterrupt):
+                pass
+
+    sys.exit(exit_code)
+
+
 @app.post("/api/matches/batch-delete")
 async def batch_delete_matches(request: Request):
     """批量删除对局"""
@@ -1078,6 +1155,83 @@ async def activate_season(request: Request, season_id: int):
     return {"success": True}
 
 
+# ==================== EXE 启动入口 ====================
+if __name__ == "__main__":
+    import socket
+
+    def safe_print(msg, fallback=""):
+        try:
+            print(msg)
+        except (UnicodeEncodeError, UnicodeDecodeError):
+            if fallback:
+                print(fallback)
+
+    def get_local_ip():
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.connect(("8.8.8.8", 80))
+            ip = s.getsockname()[0]
+            s.close()
+            return ip
+        except Exception:
+            return "127.0.0.1"
+
+    exit_code = 0
+    try:
+        host = "0.0.0.0"
+        port = 8000
+        for i, arg in enumerate(sys.argv):
+            if arg == "--local":
+                host = "127.0.0.1"
+            elif arg == "-p" and i + 1 < len(sys.argv):
+                port = int(sys.argv[i + 1])
+
+        local_ip = get_local_ip()
+
+        safe_print("=" * 50)
+        safe_print("  Board Game Ranking System")
+        safe_print("=" * 50)
+        safe_print(f"  Local:    http://127.0.0.1:{port}")
+        safe_print(f"  Network:  http://{local_ip}:{port}")
+        safe_print(f"  Admin:    http://127.0.0.1:{port}/admin")
+        safe_print(f"  Account:  admin / admin123")
+        safe_print("-" * 50)
+        safe_print("  Press Ctrl+C to stop")
+        safe_print("=" * 50)
+
+        import uvicorn
+        uvicorn.run(app, host=host, port=port, log_level="warning")
+
+    except KeyboardInterrupt:
+        safe_print("\n  Stopped.")
+    except Exception as e:
+        safe_print("")
+        safe_print("=" * 50)
+        safe_print("  ERROR: Failed to start !")
+        safe_print("=" * 50)
+        safe_print(f"  {e}")
+        try:
+            import traceback
+            tb = traceback.format_exc()
+            safe_print(tb)
+        except Exception:
+            print(f"\n  Error: {e}")
+        safe_print("-" * 50)
+        safe_print("  Tips:")
+        safe_print("  1. Port 8000 may be in use")
+        safe_print("  2. Antivirus may be blocking")
+        safe_print("=" * 50)
+        exit_code = 1
+    finally:
+        if exit_code != 0:
+            try:
+                input("\n  Press Enter to exit...")
+            except (EOFError, KeyboardInterrupt):
+                pass
+
+    sys.exit(exit_code)
+
+
 @app.put("/api/seasons/{season_id}/end")
 async def end_season(request: Request, season_id: int):
     require_admin(request)
@@ -1087,6 +1241,83 @@ async def end_season(request: Request, season_id: int):
     conn.commit()
     conn.close()
     return {"success": True}
+
+
+# ==================== EXE 启动入口 ====================
+if __name__ == "__main__":
+    import socket
+
+    def safe_print(msg, fallback=""):
+        try:
+            print(msg)
+        except (UnicodeEncodeError, UnicodeDecodeError):
+            if fallback:
+                print(fallback)
+
+    def get_local_ip():
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.connect(("8.8.8.8", 80))
+            ip = s.getsockname()[0]
+            s.close()
+            return ip
+        except Exception:
+            return "127.0.0.1"
+
+    exit_code = 0
+    try:
+        host = "0.0.0.0"
+        port = 8000
+        for i, arg in enumerate(sys.argv):
+            if arg == "--local":
+                host = "127.0.0.1"
+            elif arg == "-p" and i + 1 < len(sys.argv):
+                port = int(sys.argv[i + 1])
+
+        local_ip = get_local_ip()
+
+        safe_print("=" * 50)
+        safe_print("  Board Game Ranking System")
+        safe_print("=" * 50)
+        safe_print(f"  Local:    http://127.0.0.1:{port}")
+        safe_print(f"  Network:  http://{local_ip}:{port}")
+        safe_print(f"  Admin:    http://127.0.0.1:{port}/admin")
+        safe_print(f"  Account:  admin / admin123")
+        safe_print("-" * 50)
+        safe_print("  Press Ctrl+C to stop")
+        safe_print("=" * 50)
+
+        import uvicorn
+        uvicorn.run(app, host=host, port=port, log_level="warning")
+
+    except KeyboardInterrupt:
+        safe_print("\n  Stopped.")
+    except Exception as e:
+        safe_print("")
+        safe_print("=" * 50)
+        safe_print("  ERROR: Failed to start !")
+        safe_print("=" * 50)
+        safe_print(f"  {e}")
+        try:
+            import traceback
+            tb = traceback.format_exc()
+            safe_print(tb)
+        except Exception:
+            print(f"\n  Error: {e}")
+        safe_print("-" * 50)
+        safe_print("  Tips:")
+        safe_print("  1. Port 8000 may be in use")
+        safe_print("  2. Antivirus may be blocking")
+        safe_print("=" * 50)
+        exit_code = 1
+    finally:
+        if exit_code != 0:
+            try:
+                input("\n  Press Enter to exit...")
+            except (EOFError, KeyboardInterrupt):
+                pass
+
+    sys.exit(exit_code)
 
 
 # ==================== 成就 API ====================
@@ -1108,6 +1339,83 @@ async def create_achievement(request: Request):
     return {"success": True}
 
 
+# ==================== EXE 启动入口 ====================
+if __name__ == "__main__":
+    import socket
+
+    def safe_print(msg, fallback=""):
+        try:
+            print(msg)
+        except (UnicodeEncodeError, UnicodeDecodeError):
+            if fallback:
+                print(fallback)
+
+    def get_local_ip():
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.connect(("8.8.8.8", 80))
+            ip = s.getsockname()[0]
+            s.close()
+            return ip
+        except Exception:
+            return "127.0.0.1"
+
+    exit_code = 0
+    try:
+        host = "0.0.0.0"
+        port = 8000
+        for i, arg in enumerate(sys.argv):
+            if arg == "--local":
+                host = "127.0.0.1"
+            elif arg == "-p" and i + 1 < len(sys.argv):
+                port = int(sys.argv[i + 1])
+
+        local_ip = get_local_ip()
+
+        safe_print("=" * 50)
+        safe_print("  Board Game Ranking System")
+        safe_print("=" * 50)
+        safe_print(f"  Local:    http://127.0.0.1:{port}")
+        safe_print(f"  Network:  http://{local_ip}:{port}")
+        safe_print(f"  Admin:    http://127.0.0.1:{port}/admin")
+        safe_print(f"  Account:  admin / admin123")
+        safe_print("-" * 50)
+        safe_print("  Press Ctrl+C to stop")
+        safe_print("=" * 50)
+
+        import uvicorn
+        uvicorn.run(app, host=host, port=port, log_level="warning")
+
+    except KeyboardInterrupt:
+        safe_print("\n  Stopped.")
+    except Exception as e:
+        safe_print("")
+        safe_print("=" * 50)
+        safe_print("  ERROR: Failed to start !")
+        safe_print("=" * 50)
+        safe_print(f"  {e}")
+        try:
+            import traceback
+            tb = traceback.format_exc()
+            safe_print(tb)
+        except Exception:
+            print(f"\n  Error: {e}")
+        safe_print("-" * 50)
+        safe_print("  Tips:")
+        safe_print("  1. Port 8000 may be in use")
+        safe_print("  2. Antivirus may be blocking")
+        safe_print("=" * 50)
+        exit_code = 1
+    finally:
+        if exit_code != 0:
+            try:
+                input("\n  Press Enter to exit...")
+            except (EOFError, KeyboardInterrupt):
+                pass
+
+    sys.exit(exit_code)
+
+
 @app.delete("/api/achievements/{ach_id}")
 async def delete_achievement(request: Request, ach_id: int):
     require_admin(request)
@@ -1122,6 +1430,83 @@ async def delete_achievement(request: Request, ach_id: int):
     conn.commit()
     conn.close()
     return {"success": True}
+
+
+# ==================== EXE 启动入口 ====================
+if __name__ == "__main__":
+    import socket
+
+    def safe_print(msg, fallback=""):
+        try:
+            print(msg)
+        except (UnicodeEncodeError, UnicodeDecodeError):
+            if fallback:
+                print(fallback)
+
+    def get_local_ip():
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.connect(("8.8.8.8", 80))
+            ip = s.getsockname()[0]
+            s.close()
+            return ip
+        except Exception:
+            return "127.0.0.1"
+
+    exit_code = 0
+    try:
+        host = "0.0.0.0"
+        port = 8000
+        for i, arg in enumerate(sys.argv):
+            if arg == "--local":
+                host = "127.0.0.1"
+            elif arg == "-p" and i + 1 < len(sys.argv):
+                port = int(sys.argv[i + 1])
+
+        local_ip = get_local_ip()
+
+        safe_print("=" * 50)
+        safe_print("  Board Game Ranking System")
+        safe_print("=" * 50)
+        safe_print(f"  Local:    http://127.0.0.1:{port}")
+        safe_print(f"  Network:  http://{local_ip}:{port}")
+        safe_print(f"  Admin:    http://127.0.0.1:{port}/admin")
+        safe_print(f"  Account:  admin / admin123")
+        safe_print("-" * 50)
+        safe_print("  Press Ctrl+C to stop")
+        safe_print("=" * 50)
+
+        import uvicorn
+        uvicorn.run(app, host=host, port=port, log_level="warning")
+
+    except KeyboardInterrupt:
+        safe_print("\n  Stopped.")
+    except Exception as e:
+        safe_print("")
+        safe_print("=" * 50)
+        safe_print("  ERROR: Failed to start !")
+        safe_print("=" * 50)
+        safe_print(f"  {e}")
+        try:
+            import traceback
+            tb = traceback.format_exc()
+            safe_print(tb)
+        except Exception:
+            print(f"\n  Error: {e}")
+        safe_print("-" * 50)
+        safe_print("  Tips:")
+        safe_print("  1. Port 8000 may be in use")
+        safe_print("  2. Antivirus may be blocking")
+        safe_print("=" * 50)
+        exit_code = 1
+    finally:
+        if exit_code != 0:
+            try:
+                input("\n  Press Enter to exit...")
+            except (EOFError, KeyboardInterrupt):
+                pass
+
+    sys.exit(exit_code)
 
 
 @app.get("/api/achievements/progress/{player_id}")
@@ -1327,6 +1712,83 @@ async def delete_role(request: Request, role_id: int):
     conn.commit()
     conn.close()
     return {"success": True}
+
+
+# ==================== EXE 启动入口 ====================
+if __name__ == "__main__":
+    import socket
+
+    def safe_print(msg, fallback=""):
+        try:
+            print(msg)
+        except (UnicodeEncodeError, UnicodeDecodeError):
+            if fallback:
+                print(fallback)
+
+    def get_local_ip():
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.connect(("8.8.8.8", 80))
+            ip = s.getsockname()[0]
+            s.close()
+            return ip
+        except Exception:
+            return "127.0.0.1"
+
+    exit_code = 0
+    try:
+        host = "0.0.0.0"
+        port = 8000
+        for i, arg in enumerate(sys.argv):
+            if arg == "--local":
+                host = "127.0.0.1"
+            elif arg == "-p" and i + 1 < len(sys.argv):
+                port = int(sys.argv[i + 1])
+
+        local_ip = get_local_ip()
+
+        safe_print("=" * 50)
+        safe_print("  Board Game Ranking System")
+        safe_print("=" * 50)
+        safe_print(f"  Local:    http://127.0.0.1:{port}")
+        safe_print(f"  Network:  http://{local_ip}:{port}")
+        safe_print(f"  Admin:    http://127.0.0.1:{port}/admin")
+        safe_print(f"  Account:  admin / admin123")
+        safe_print("-" * 50)
+        safe_print("  Press Ctrl+C to stop")
+        safe_print("=" * 50)
+
+        import uvicorn
+        uvicorn.run(app, host=host, port=port, log_level="warning")
+
+    except KeyboardInterrupt:
+        safe_print("\n  Stopped.")
+    except Exception as e:
+        safe_print("")
+        safe_print("=" * 50)
+        safe_print("  ERROR: Failed to start !")
+        safe_print("=" * 50)
+        safe_print(f"  {e}")
+        try:
+            import traceback
+            tb = traceback.format_exc()
+            safe_print(tb)
+        except Exception:
+            print(f"\n  Error: {e}")
+        safe_print("-" * 50)
+        safe_print("  Tips:")
+        safe_print("  1. Port 8000 may be in use")
+        safe_print("  2. Antivirus may be blocking")
+        safe_print("=" * 50)
+        exit_code = 1
+    finally:
+        if exit_code != 0:
+            try:
+                input("\n  Press Enter to exit...")
+            except (EOFError, KeyboardInterrupt):
+                pass
+
+    sys.exit(exit_code)
 
 
 # ==================== 导出 API ====================
@@ -1668,6 +2130,83 @@ async def update_game(request: Request, game_id: int):
     return {"success": True}
 
 
+# ==================== EXE 启动入口 ====================
+if __name__ == "__main__":
+    import socket
+
+    def safe_print(msg, fallback=""):
+        try:
+            print(msg)
+        except (UnicodeEncodeError, UnicodeDecodeError):
+            if fallback:
+                print(fallback)
+
+    def get_local_ip():
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.connect(("8.8.8.8", 80))
+            ip = s.getsockname()[0]
+            s.close()
+            return ip
+        except Exception:
+            return "127.0.0.1"
+
+    exit_code = 0
+    try:
+        host = "0.0.0.0"
+        port = 8000
+        for i, arg in enumerate(sys.argv):
+            if arg == "--local":
+                host = "127.0.0.1"
+            elif arg == "-p" and i + 1 < len(sys.argv):
+                port = int(sys.argv[i + 1])
+
+        local_ip = get_local_ip()
+
+        safe_print("=" * 50)
+        safe_print("  Board Game Ranking System")
+        safe_print("=" * 50)
+        safe_print(f"  Local:    http://127.0.0.1:{port}")
+        safe_print(f"  Network:  http://{local_ip}:{port}")
+        safe_print(f"  Admin:    http://127.0.0.1:{port}/admin")
+        safe_print(f"  Account:  admin / admin123")
+        safe_print("-" * 50)
+        safe_print("  Press Ctrl+C to stop")
+        safe_print("=" * 50)
+
+        import uvicorn
+        uvicorn.run(app, host=host, port=port, log_level="warning")
+
+    except KeyboardInterrupt:
+        safe_print("\n  Stopped.")
+    except Exception as e:
+        safe_print("")
+        safe_print("=" * 50)
+        safe_print("  ERROR: Failed to start !")
+        safe_print("=" * 50)
+        safe_print(f"  {e}")
+        try:
+            import traceback
+            tb = traceback.format_exc()
+            safe_print(tb)
+        except Exception:
+            print(f"\n  Error: {e}")
+        safe_print("-" * 50)
+        safe_print("  Tips:")
+        safe_print("  1. Port 8000 may be in use")
+        safe_print("  2. Antivirus may be blocking")
+        safe_print("=" * 50)
+        exit_code = 1
+    finally:
+        if exit_code != 0:
+            try:
+                input("\n  Press Enter to exit...")
+            except (EOFError, KeyboardInterrupt):
+                pass
+
+    sys.exit(exit_code)
+
+
 # ==================== 预设阵容 API ====================
 
 @app.get("/api/presets")
@@ -1702,6 +2241,83 @@ async def delete_preset(request: Request, preset_id: int):
     conn.commit()
     conn.close()
     return {"success": True}
+
+
+# ==================== EXE 启动入口 ====================
+if __name__ == "__main__":
+    import socket
+
+    def safe_print(msg, fallback=""):
+        try:
+            print(msg)
+        except (UnicodeEncodeError, UnicodeDecodeError):
+            if fallback:
+                print(fallback)
+
+    def get_local_ip():
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.connect(("8.8.8.8", 80))
+            ip = s.getsockname()[0]
+            s.close()
+            return ip
+        except Exception:
+            return "127.0.0.1"
+
+    exit_code = 0
+    try:
+        host = "0.0.0.0"
+        port = 8000
+        for i, arg in enumerate(sys.argv):
+            if arg == "--local":
+                host = "127.0.0.1"
+            elif arg == "-p" and i + 1 < len(sys.argv):
+                port = int(sys.argv[i + 1])
+
+        local_ip = get_local_ip()
+
+        safe_print("=" * 50)
+        safe_print("  Board Game Ranking System")
+        safe_print("=" * 50)
+        safe_print(f"  Local:    http://127.0.0.1:{port}")
+        safe_print(f"  Network:  http://{local_ip}:{port}")
+        safe_print(f"  Admin:    http://127.0.0.1:{port}/admin")
+        safe_print(f"  Account:  admin / admin123")
+        safe_print("-" * 50)
+        safe_print("  Press Ctrl+C to stop")
+        safe_print("=" * 50)
+
+        import uvicorn
+        uvicorn.run(app, host=host, port=port, log_level="warning")
+
+    except KeyboardInterrupt:
+        safe_print("\n  Stopped.")
+    except Exception as e:
+        safe_print("")
+        safe_print("=" * 50)
+        safe_print("  ERROR: Failed to start !")
+        safe_print("=" * 50)
+        safe_print(f"  {e}")
+        try:
+            import traceback
+            tb = traceback.format_exc()
+            safe_print(tb)
+        except Exception:
+            print(f"\n  Error: {e}")
+        safe_print("-" * 50)
+        safe_print("  Tips:")
+        safe_print("  1. Port 8000 may be in use")
+        safe_print("  2. Antivirus may be blocking")
+        safe_print("=" * 50)
+        exit_code = 1
+    finally:
+        if exit_code != 0:
+            try:
+                input("\n  Press Enter to exit...")
+            except (EOFError, KeyboardInterrupt):
+                pass
+
+    sys.exit(exit_code)
 
 
 # ==================== 操作加分 API ====================
@@ -1744,6 +2360,83 @@ async def delete_action(request: Request, action_id: int):
     conn.commit()
     conn.close()
     return {"success": True}
+
+
+# ==================== EXE 启动入口 ====================
+if __name__ == "__main__":
+    import socket
+
+    def safe_print(msg, fallback=""):
+        try:
+            print(msg)
+        except (UnicodeEncodeError, UnicodeDecodeError):
+            if fallback:
+                print(fallback)
+
+    def get_local_ip():
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.connect(("8.8.8.8", 80))
+            ip = s.getsockname()[0]
+            s.close()
+            return ip
+        except Exception:
+            return "127.0.0.1"
+
+    exit_code = 0
+    try:
+        host = "0.0.0.0"
+        port = 8000
+        for i, arg in enumerate(sys.argv):
+            if arg == "--local":
+                host = "127.0.0.1"
+            elif arg == "-p" and i + 1 < len(sys.argv):
+                port = int(sys.argv[i + 1])
+
+        local_ip = get_local_ip()
+
+        safe_print("=" * 50)
+        safe_print("  Board Game Ranking System")
+        safe_print("=" * 50)
+        safe_print(f"  Local:    http://127.0.0.1:{port}")
+        safe_print(f"  Network:  http://{local_ip}:{port}")
+        safe_print(f"  Admin:    http://127.0.0.1:{port}/admin")
+        safe_print(f"  Account:  admin / admin123")
+        safe_print("-" * 50)
+        safe_print("  Press Ctrl+C to stop")
+        safe_print("=" * 50)
+
+        import uvicorn
+        uvicorn.run(app, host=host, port=port, log_level="warning")
+
+    except KeyboardInterrupt:
+        safe_print("\n  Stopped.")
+    except Exception as e:
+        safe_print("")
+        safe_print("=" * 50)
+        safe_print("  ERROR: Failed to start !")
+        safe_print("=" * 50)
+        safe_print(f"  {e}")
+        try:
+            import traceback
+            tb = traceback.format_exc()
+            safe_print(tb)
+        except Exception:
+            print(f"\n  Error: {e}")
+        safe_print("-" * 50)
+        safe_print("  Tips:")
+        safe_print("  1. Port 8000 may be in use")
+        safe_print("  2. Antivirus may be blocking")
+        safe_print("=" * 50)
+        exit_code = 1
+    finally:
+        if exit_code != 0:
+            try:
+                input("\n  Press Enter to exit...")
+            except (EOFError, KeyboardInterrupt):
+                pass
+
+    sys.exit(exit_code)
 
 
 # ==================== 自定义角色 API ====================
@@ -1794,6 +2487,83 @@ async def update_settings(request: Request):
     return {"success": True}
 
 
+# ==================== EXE 启动入口 ====================
+if __name__ == "__main__":
+    import socket
+
+    def safe_print(msg, fallback=""):
+        try:
+            print(msg)
+        except (UnicodeEncodeError, UnicodeDecodeError):
+            if fallback:
+                print(fallback)
+
+    def get_local_ip():
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.connect(("8.8.8.8", 80))
+            ip = s.getsockname()[0]
+            s.close()
+            return ip
+        except Exception:
+            return "127.0.0.1"
+
+    exit_code = 0
+    try:
+        host = "0.0.0.0"
+        port = 8000
+        for i, arg in enumerate(sys.argv):
+            if arg == "--local":
+                host = "127.0.0.1"
+            elif arg == "-p" and i + 1 < len(sys.argv):
+                port = int(sys.argv[i + 1])
+
+        local_ip = get_local_ip()
+
+        safe_print("=" * 50)
+        safe_print("  Board Game Ranking System")
+        safe_print("=" * 50)
+        safe_print(f"  Local:    http://127.0.0.1:{port}")
+        safe_print(f"  Network:  http://{local_ip}:{port}")
+        safe_print(f"  Admin:    http://127.0.0.1:{port}/admin")
+        safe_print(f"  Account:  admin / admin123")
+        safe_print("-" * 50)
+        safe_print("  Press Ctrl+C to stop")
+        safe_print("=" * 50)
+
+        import uvicorn
+        uvicorn.run(app, host=host, port=port, log_level="warning")
+
+    except KeyboardInterrupt:
+        safe_print("\n  Stopped.")
+    except Exception as e:
+        safe_print("")
+        safe_print("=" * 50)
+        safe_print("  ERROR: Failed to start !")
+        safe_print("=" * 50)
+        safe_print(f"  {e}")
+        try:
+            import traceback
+            tb = traceback.format_exc()
+            safe_print(tb)
+        except Exception:
+            print(f"\n  Error: {e}")
+        safe_print("-" * 50)
+        safe_print("  Tips:")
+        safe_print("  1. Port 8000 may be in use")
+        safe_print("  2. Antivirus may be blocking")
+        safe_print("=" * 50)
+        exit_code = 1
+    finally:
+        if exit_code != 0:
+            try:
+                input("\n  Press Enter to exit...")
+            except (EOFError, KeyboardInterrupt):
+                pass
+
+    sys.exit(exit_code)
+
+
 @app.put("/api/games/{game_id}/features")
 async def update_game_features(request: Request, game_id: int):
     require_admin(request)
@@ -1807,3 +2577,157 @@ async def update_game_features(request: Request, game_id: int):
     conn.commit()
     conn.close()
     return {"success": True}
+
+
+# ==================== EXE 启动入口 ====================
+if __name__ == "__main__":
+    import socket
+
+    def safe_print(msg, fallback=""):
+        try:
+            print(msg)
+        except (UnicodeEncodeError, UnicodeDecodeError):
+            if fallback:
+                print(fallback)
+
+    def get_local_ip():
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.connect(("8.8.8.8", 80))
+            ip = s.getsockname()[0]
+            s.close()
+            return ip
+        except Exception:
+            return "127.0.0.1"
+
+    exit_code = 0
+    try:
+        host = "0.0.0.0"
+        port = 8000
+        for i, arg in enumerate(sys.argv):
+            if arg == "--local":
+                host = "127.0.0.1"
+            elif arg == "-p" and i + 1 < len(sys.argv):
+                port = int(sys.argv[i + 1])
+
+        local_ip = get_local_ip()
+
+        safe_print("=" * 50)
+        safe_print("  Board Game Ranking System")
+        safe_print("=" * 50)
+        safe_print(f"  Local:    http://127.0.0.1:{port}")
+        safe_print(f"  Network:  http://{local_ip}:{port}")
+        safe_print(f"  Admin:    http://127.0.0.1:{port}/admin")
+        safe_print(f"  Account:  admin / admin123")
+        safe_print("-" * 50)
+        safe_print("  Press Ctrl+C to stop")
+        safe_print("=" * 50)
+
+        import uvicorn
+        uvicorn.run(app, host=host, port=port, log_level="warning")
+
+    except KeyboardInterrupt:
+        safe_print("\n  Stopped.")
+    except Exception as e:
+        safe_print("")
+        safe_print("=" * 50)
+        safe_print("  ERROR: Failed to start !")
+        safe_print("=" * 50)
+        safe_print(f"  {e}")
+        try:
+            import traceback
+            tb = traceback.format_exc()
+            safe_print(tb)
+        except Exception:
+            print(f"\n  Error: {e}")
+        safe_print("-" * 50)
+        safe_print("  Tips:")
+        safe_print("  1. Port 8000 may be in use")
+        safe_print("  2. Antivirus may be blocking")
+        safe_print("=" * 50)
+        exit_code = 1
+    finally:
+        if exit_code != 0:
+            try:
+                input("\n  Press Enter to exit...")
+            except (EOFError, KeyboardInterrupt):
+                pass
+
+    sys.exit(exit_code)
+
+
+# ==================== EXE 启动入口 ====================
+if __name__ == "__main__":
+    import socket
+
+    def safe_print(msg, fallback=""):
+        try:
+            print(msg)
+        except (UnicodeEncodeError, UnicodeDecodeError):
+            if fallback:
+                print(fallback)
+
+    def get_local_ip():
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.connect(("8.8.8.8", 80))
+            ip = s.getsockname()[0]
+            s.close()
+            return ip
+        except Exception:
+            return "127.0.0.1"
+
+    exit_code = 0
+    try:
+        host = "0.0.0.0"
+        port = 8000
+        for i, arg in enumerate(sys.argv):
+            if arg == "--local":
+                host = "127.0.0.1"
+            elif arg == "-p" and i + 1 < len(sys.argv):
+                port = int(sys.argv[i + 1])
+
+        local_ip = get_local_ip()
+
+        safe_print("=" * 50)
+        safe_print("  Board Game Ranking System")
+        safe_print("=" * 50)
+        safe_print(f"  Local:    http://127.0.0.1:{port}")
+        safe_print(f"  Network:  http://{local_ip}:{port}")
+        safe_print(f"  Admin:    http://127.0.0.1:{port}/admin")
+        safe_print(f"  Account:  admin / admin123")
+        safe_print("-" * 50)
+        safe_print("  Press Ctrl+C to stop")
+        safe_print("=" * 50)
+
+        import uvicorn
+        uvicorn.run(app, host=host, port=port, log_level="warning")
+
+    except KeyboardInterrupt:
+        safe_print("\n  Stopped.")
+    except Exception as e:
+        safe_print("")
+        safe_print("=" * 50)
+        safe_print("  ERROR: Failed to start !")
+        safe_print("=" * 50)
+        safe_print(f"  {e}")
+        try:
+            import traceback
+            tb = traceback.format_exc()
+            safe_print(tb)
+        except Exception:
+            print(f"\n  Error: {e}")
+        safe_print("-" * 50)
+        safe_print("  Tips:")
+        safe_print("  1. Port 8000 may be in use")
+        safe_print("  2. Antivirus may be blocking")
+        safe_print("=" * 50)
+        exit_code = 1
+    finally:
+        if exit_code != 0:
+            try:
+                input("\n  Press Enter to exit...")
+            except (EOFError, KeyboardInterrupt):
+                pass
+
+    sys.exit(exit_code)
