@@ -1898,27 +1898,40 @@ if __name__ == "__main__":
         safe_print("=" * 50)
 
         _crash_log("init: importing uvicorn...")
-        import uvicorn, webbrowser, threading
+        import uvicorn
         _crash_log(f"init: starting server on {host}:{port}")
 
-        # 在后台线程启动服务器
-        server_thread = threading.Thread(
-            target=uvicorn.run,
-            kwargs={"app": app, "host": host, "port": port, "log_level": "warning"},
-            daemon=True
-        )
+        # 非 daemon 线程跑 uvicorn，确保不会被主线程退出杀掉
+        import threading as _th
+        server_ready = _th.Event()
+
+        def run_server():
+            cfg = uvicorn.Config(app, host=host, port=port, log_level="warning")
+            srv = uvicorn.Server(cfg)
+            server_ready.set()
+            srv.run()
+
+        server_thread = _th.Thread(target=run_server, daemon=False)
         server_thread.start()
 
-        # 等1.5秒后自动打开浏览器
-        def open_browser():
-            import time
-            time.sleep(1.5)
-            url = f"http://127.0.0.1:{port}"
-            _crash_log(f"init: opening browser -> {url}")
-            safe_print(f"  Opening browser: {url}")
-            webbrowser.open(url)
+        # 等服务器就绪后打开浏览器
+        server_ready.wait(timeout=3)
+        _crash_log("init: server ready, opening browser...")
+        import time
+        time.sleep(0.8)  # 给 uvicorn 一点时间真正绑定端口
 
-        threading.Thread(target=open_browser, daemon=True).start()
+        url = f"http://127.0.0.1:{port}"
+        _crash_log(f"init: opening browser -> {url}")
+        safe_print(f"  Opening browser: {url}")
+
+        # Windows 上直接用 os.startfile，比 webbrowser.open 更可靠
+        try:
+            os.startfile(url)
+            _crash_log("init: os.startfile OK")
+        except Exception as _be:
+            _crash_log(f"init: os.startfile failed: {_be}")
+            import webbrowser
+            webbrowser.open(url)
 
         # 主线程等待
         try:

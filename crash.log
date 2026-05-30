@@ -26,3 +26,17 @@
 2026-05-30T15:32:15.712160 step10: session middleware OK
 2026-05-30T15:32:15.713155 step11: static files mounted
 2026-05-30T15:32:15.714154 step12: jinja2 env OK
+2026-05-30T15:37:14.731299 === STARTUP BEGIN ===
+2026-05-30T15:37:14.732299 frozen=False, argv=['D:\\PycharmProjects\\game\\run_server.py'], cwd=D:\PycharmProjects\game
+2026-05-30T15:37:14.738307 step1: stdlib imports OK
+2026-05-30T15:37:15.679345 step2: fastapi imports OK
+2026-05-30T15:37:15.699349 step3: starlette OK
+2026-05-30T15:37:15.802347 step4: jinja2 OK
+2026-05-30T15:37:16.790432 step5: openpyxl OK
+2026-05-30T15:37:16.803436 step6: database OK
+2026-05-30T15:37:16.804435 step7: path OK, frozen=False, resource=D:\PycharmProjects\game
+2026-05-30T15:37:16.806437 step8: log dir created: D:\PycharmProjects\game\logs
+2026-05-30T15:37:16.809432 step9: FastAPI app created
+2026-05-30T15:37:16.810436 step10: session middleware OK
+2026-05-30T15:37:16.812433 step11: static files mounted
+2026-05-30T15:37:16.813436 step12: jinja2 env OK
