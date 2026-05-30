@@ -1958,52 +1958,74 @@ if __name__ == "__main__":
 
         _crash_log("init: importing uvicorn...")
         import uvicorn
-        _crash_log(f"init: starting server on {host}:{port}")
-
-        # 非 daemon 线程跑 uvicorn，确保不会被主线程退出杀掉
         import threading as _th
         import time as _time
-        server_ready = _th.Event()
-        server_failed = _th.Event()
-        server_failed_msg = [""]  # 用 list 跨线程传值
 
-        def run_server():
-            try:
-                cfg = uvicorn.Config(app, host=host, port=port, log_level="warning")
-                srv = uvicorn.Server(cfg)
-                srv.run()  # 绑端口失败会直接抛异常
-            except Exception as _se:
-                _crash_log(f"init: server bind failed: {_se}")
-                server_failed_msg[0] = str(_se)
-                server_failed.set()
+        # 端口被占用时自动尝试下一个（最多试 20 个端口）
+        original_port = int(port)
+        server_failed_msg = [""]
+        server_thread = None
+        started = False
 
-        server_thread = _th.Thread(target=run_server, daemon=False)
-        server_thread.start()
+        for _try in range(20):
+            port = original_port + _try
+            _crash_log(f"init: trying {host}:{port}")
 
-        # 等服务器真正绑定端口（成功则 run 会阻塞，失败则线程很快退出）
-        _time.sleep(1.0)
-        if server_failed.is_set() or not server_thread.is_alive():
-            _crash_log("init: server failed to bind, port likely in use")
-            safe_print("")
-            safe_print("-" * 50)
-            safe_print("  [错误] 端口 8000 已被占用")
-            safe_print("-" * 50)
-            safe_print("  说明你已经打开了另一个桌游排行窗口。")
-            safe_print("  直接把那个窗口用起来就行，无需再启动新的。")
-            safe_print("")
-            safe_print("  如果找不到之前的窗口：")
-            safe_print("    1. 打开任务管理器 (Ctrl+Shift+Esc)")
-            safe_print("    2. 找到 桌游排行 进程，结束它")
-            safe_print("    3. 重新启动本程序")
-            safe_print("-" * 50)
-            _crash_log(f"init: server error detail: {server_failed_msg[0]}")
-            exit_code = 1
-            sys.exit(exit_code)
+            server_failed = _th.Event()
+            server_failed_msg[0] = ""
 
-        # 等服务器就绪后打开浏览器
-        server_ready.wait(timeout=3)
-        import time
-        time.sleep(0.8)  # 给 uvicorn 一点时间真正绑定端口
+            def run_server(_p=port):
+                try:
+                    # 抑制 uvicorn 的 stderr 噪音（绑定失败时）
+                    import io as _io, os as _os
+                    _old_stderr = _os.dup(2)
+                    _os.dup2(_os.open(_os.devnull, _os.O_WRONLY), 2)
+                    try:
+                        cfg = uvicorn.Config(app, host=host, port=_p, log_level="warning")
+                        srv = uvicorn.Server(cfg)
+                        srv.run()
+                    finally:
+                        _os.dup2(_old_stderr, 2)
+                        _os.close(_old_stderr)
+                except Exception as _se:
+                    _crash_log(f"init: bind failed on {_p}: {_se}")
+                    server_failed_msg[0] = str(_se)
+                    server_failed.set()
+
+            server_thread = _th.Thread(target=run_server, daemon=False)
+            server_thread.start()
+            _time.sleep(1.0)
+
+            if server_failed.is_set() or not server_thread.is_alive():
+                if _try == 19:
+                    # 所有端口都试过了
+                    _crash_log("init: all 20 ports exhausted")
+                    safe_print("")
+                    safe_print("-" * 50)
+                    safe_print(f"  [错误] 端口 {original_port}-{port} 均被占用")
+                    safe_print("-" * 50)
+                    safe_print("  请关闭占用端口的程序后重试：")
+                    safe_print("    1. 任务管理器 (Ctrl+Shift+Esc)")
+                    safe_print("    2. 找到 桌游排行 或 python 进程并结束")
+                    safe_print("-" * 50)
+                    exit_code = 1
+                    sys.exit(exit_code)
+                # 还有端口可试，继续
+                continue
+            else:
+                started = True
+                break
+
+        if not started:
+            sys.exit(1)  # 理论上不会到这里
+
+        if port != original_port:
+            _crash_log(f"init: port switched {original_port} -> {port}")
+            safe_print(f"  端口 {original_port} 被占用，已自动使用 {port}")
+            safe_print(f"  访问地址: http://{local_ip}:{port}")
+
+        # 服务器已就绪，稍等让 uvicorn 完全初始化
+        _time.sleep(0.5)
 
         url = f"http://127.0.0.1:{port}"
         public_url = None
