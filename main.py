@@ -2107,10 +2107,10 @@ if __name__ == "__main__":
                 server_thread.join(1)
         except KeyboardInterrupt:
             _crash_log("init: KeyboardInterrupt, shutting down")
-            safe_print("\n  Stopped.")
+            safe_print("\n  Server stopped.")
 
     except KeyboardInterrupt:
-        safe_print("\n  Stopped.")
+        safe_print("\n  Server stopped.")
     except Exception as e:
         _crash_log(f"FATAL: {e}")
         _crash_log(_tb.format_exc())
@@ -2132,11 +2132,10 @@ if __name__ == "__main__":
         safe_print("=" * 50)
         exit_code = 1
     finally:
-        if exit_code != 0:
-            try:
-                input("\n  Press Enter to exit...")
-            except (EOFError, KeyboardInterrupt):
-                pass
+        try:
+            input("\n  Press Enter to close this window...")
+        except (EOFError, KeyboardInterrupt):
+            pass
 
     sys.exit(exit_code)
 
