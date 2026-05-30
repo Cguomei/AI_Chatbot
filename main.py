@@ -1880,6 +1880,7 @@ if __name__ == "__main__":
         port = 8000
         open_browser = True
         browser_path = None
+        use_share = False
 
         i = 1
         while i < len(sys.argv):
@@ -1894,6 +1895,8 @@ if __name__ == "__main__":
                 browser_path = sys.argv[i]
             elif arg in ("--no-browser", "-nb"):
                 open_browser = False
+            elif arg in ("--share", "-s"):
+                use_share = True
             elif arg in ("-h", "--help"):
                 safe_print("Usage: 桌游排行.exe [options]")
                 safe_print("")
@@ -1902,6 +1905,7 @@ if __name__ == "__main__":
                 safe_print("  -b, --browser PATH   指定浏览器路径")
                 safe_print("  --local              仅监听 127.0.0.1")
                 safe_print("  --no-browser, -nb    不自动打开浏览器")
+                safe_print("  --share, -s           开启公网隧道 (ngrok)")
                 safe_print("  -h, --help           显示此帮助")
                 safe_print("")
                 sys.exit(0)
@@ -1943,6 +1947,41 @@ if __name__ == "__main__":
         time.sleep(0.8)  # 给 uvicorn 一点时间真正绑定端口
 
         url = f"http://127.0.0.1:{port}"
+        public_url = None
+
+        # --share: 启动 ngrok 公网隧道
+        if use_share:
+            _crash_log("init: --share enabled, starting ngrok tunnel...")
+            safe_print("")
+            safe_print("-" * 50)
+            safe_print("  Starting public tunnel (ngrok)...")
+            safe_print("  First run may download ngrok, please wait...")
+            try:
+                from pyngrok import ngrok, conf
+                # 如果用户设了 NGROK_AUTHTOKEN 环境变量就用
+                ngrok_token = os.environ.get("NGROK_AUTHTOKEN", "")
+                if ngrok_token:
+                    conf.get_default().auth_token = ngrok_token
+                public_url = ngrok.connect(port, "http").public_url
+                _crash_log(f"init: ngrok tunnel OK -> {public_url}")
+                safe_print(f"  Public:   {public_url}")
+                safe_print("  Share this link with anyone!")
+                safe_print("-" * 50)
+                safe_print("")
+            except ImportError:
+                _crash_log("init: pyngrok not installed")
+                safe_print("  [ERROR] pyngrok library not found.")
+                safe_print("  Install: pip install pyngrok")
+                safe_print("  Then run with --share again.")
+                safe_print("-" * 50)
+                safe_print("")
+            except Exception as _ne:
+                _crash_log(f"init: ngrok failed: {_ne}")
+                safe_print(f"  [ERROR] ngrok tunnel failed: {_ne}")
+                safe_print("  Make sure you have internet access.")
+                safe_print("  You can still use the local address above.")
+                safe_print("-" * 50)
+                safe_print("")
 
         if open_browser:
             _crash_log("init: server ready, opening browser...")

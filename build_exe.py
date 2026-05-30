@@ -10,7 +10,7 @@
 import os, sys, subprocess
 
 APP_NAME = "桌游排行"
-VERSION = "1.0.5"
+VERSION = "1.0.6"
 EXE_NAME = f"{APP_NAME}-v{VERSION}"
 
 def step(msg):
@@ -85,6 +85,7 @@ cmd += [
     "--hidden-import=uvicorn.lifespan.on",
     "--hidden-import=jinja2.ext",
     "--hidden-import=openpyxl",
+    "--collect-all=pyngrok",
 ]
 
 cmd.append("main.py")
