@@ -1,16 +1,52 @@
+# ==================== 启动崩溃日志（最优先，在一切import之前） ====================
+import os as _os, sys as _sys, traceback as _tb, datetime as _dt
+
+def _crash_log(msg):
+    try:
+        if getattr(_sys, "frozen", False):
+            d = _os.path.dirname(_sys.executable)
+        else:
+            d = _os.path.dirname(_os.path.abspath(__file__))
+        with open(_os.path.join(d, "crash.log"), "a", encoding="utf-8") as f:
+            f.write(f"{_dt.datetime.now().isoformat()} {msg}\n")
+            f.flush()
+    except:
+        pass
+
+try:
+    _crash_log("=== STARTUP BEGIN ===")
+    _crash_log(f"frozen={getattr(_sys, 'frozen', False)}, argv={_sys.argv}, cwd={_os.getcwd()}")
+except:
+    pass
+
+# 全局未捕获异常 => 写入 crash.log
+_orig_hook = _sys.excepthook
+def _crash_hook(typ, val, tb):
+    _crash_log(f"UNHANDLED: {typ.__name__}: {val}")
+    _crash_log("".join(_tb.format_tb(tb)))
+    if _orig_hook:
+        _orig_hook(typ, val, tb)
+_sys.excepthook = _crash_hook
+
 import hashlib, csv, io, math, os, glob, shutil, logging, sys, time, traceback
+_crash_log("step1: stdlib imports OK")
 from contextlib import asynccontextmanager
 from datetime import datetime
 from typing import Optional
 from fastapi import FastAPI, Request, Form, HTTPException, Depends, Query
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
+_crash_log("step2: fastapi imports OK")
 from starlette.middleware.sessions import SessionMiddleware
+_crash_log("step3: starlette OK")
 from jinja2 import Environment, FileSystemLoader
+_crash_log("step4: jinja2 OK")
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
+_crash_log("step5: openpyxl OK")
 from database import get_db, init_db
+_crash_log("step6: database OK")
 
 # ==================== 路径兼容（打包成 exe 后资源在 sys._MEIPASS，数据在 exe 同目录）========================
 if getattr(sys, 'frozen', False):
@@ -19,10 +55,12 @@ if getattr(sys, 'frozen', False):
 else:
     _RESOURCE_DIR = os.path.dirname(__file__)
     _DATA_DIR = _RESOURCE_DIR
+_crash_log(f"step7: path OK, frozen={getattr(sys, 'frozen', False)}, resource={_RESOURCE_DIR}")
 
 # ==================== 日志配置 ====================
 LOG_DIR = os.path.join(_DATA_DIR, "logs")
 os.makedirs(LOG_DIR, exist_ok=True)
+_crash_log(f"step8: log dir created: {LOG_DIR}")
 
 logger = logging.getLogger("boardgame")
 logger.setLevel(logging.DEBUG)
@@ -73,7 +111,9 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="桌游排行", lifespan=lifespan)
+_crash_log("step9: FastAPI app created")
 app.add_middleware(SessionMiddleware, secret_key="boardgame-secret-key-2026")
+_crash_log("step10: session middleware OK")
 
 # ==================== 请求日志中间件 ====================
 @app.middleware("http")
@@ -91,9 +131,11 @@ async def log_requests(request: Request, call_next):
         raise
 
 app.mount("/static", StaticFiles(directory=os.path.join(_RESOURCE_DIR, "static")), name="static")
+_crash_log("step11: static files mounted")
 
 # 用原始 Jinja2 替代 Starlette 的 Jinja2Templates，绕过 Starlette 0.50 + Jinja2 3.1.6 缓存 key 问题
 _jinja_env = Environment(loader=FileSystemLoader(_TEMPLATE_DIR))
+_crash_log("step12: jinja2 env OK")
 
 
 def render_template(name: str, request: Request, context: dict = None) -> HTMLResponse:
@@ -920,6 +962,90 @@ async def delete_match(request: Request, match_id: int):
 
 # ==================== EXE 启动入口 ====================
 if __name__ == "__main__":
+    _crash_log("init: entering startup block")
+
+    import socket
+
+    def safe_print(msg, fallback=""):
+        try:
+            print(msg, flush=True)
+        except (UnicodeEncodeError, UnicodeDecodeError):
+            if fallback:
+                print(fallback, flush=True)
+
+    def get_local_ip():
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.connect(("8.8.8.8", 80))
+            ip = s.getsockname()[0]
+            s.close()
+            return ip
+        except Exception:
+            return "127.0.0.1"
+
+    exit_code = 0
+    try:
+        host = "0.0.0.0"
+        port = 8000
+        for i, arg in enumerate(sys.argv):
+            if arg == "--local":
+                host = "127.0.0.1"
+            elif arg == "-p" and i + 1 < len(sys.argv):
+                port = int(sys.argv[i + 1])
+
+        local_ip = get_local_ip()
+
+        safe_print("=" * 50)
+        safe_print("  Board Game Ranking System")
+        safe_print("=" * 50)
+        safe_print(f"  Local:    http://127.0.0.1:{port}")
+        safe_print(f"  Network:  http://{local_ip}:{port}")
+        safe_print(f"  Admin:    http://127.0.0.1:{port}/admin")
+        safe_print(f"  Account:  admin / admin123")
+        safe_print("-" * 50)
+        safe_print("  Press Ctrl+C to stop")
+        safe_print("=" * 50)
+
+        _crash_log("init: importing uvicorn...")
+        import uvicorn
+        _crash_log(f"init: uvicorn.run(app, host={host}, port={port})")
+        uvicorn.run(app, host=host, port=port, log_level="warning")
+
+    except KeyboardInterrupt:
+        safe_print("\n  Stopped.")
+    except Exception as e:
+        _crash_log(f"FATAL: {e}")
+        _crash_log(_tb.format_exc())
+        safe_print("")
+        safe_print("=" * 50)
+        safe_print("  ERROR: Failed to start!")
+        safe_print("=" * 50)
+        safe_print(f"  {e}")
+        try:
+            tb = _tb.format_exc()
+            safe_print(tb)
+        except Exception:
+            safe_print(str(e))
+        safe_print("-" * 50)
+        safe_print("  Tips:")
+        safe_print("  1. Port 8000 may be in use")
+        safe_print("  2. Antivirus may be blocking")
+        safe_print("  3. See crash.log for details")
+        safe_print("=" * 50)
+        exit_code = 1
+    finally:
+        if exit_code != 0:
+            try:
+                input("\n  Press Enter to exit...")
+            except (EOFError, KeyboardInterrupt):
+                pass
+
+    sys.exit(exit_code)
+
+
+
+# ==================== EXE 启动入口 ====================
+if __name__ == "__main__":
     import socket
 
     def safe_print(msg, fallback=""):
@@ -962,12 +1088,16 @@ if __name__ == "__main__":
         safe_print("  Press Ctrl+C to stop")
         safe_print("=" * 50)
 
+        _crash_log("init: importing uvicorn...")
         import uvicorn
+        _crash_log(f"init: uvicorn.run(app, host={host}, port={port})")
         uvicorn.run(app, host=host, port=port, log_level="warning")
 
     except KeyboardInterrupt:
         safe_print("\n  Stopped.")
     except Exception as e:
+        _crash_log(f"FATAL: {e}")
+        _crash_log(_tb.format_exc())
         safe_print("")
         safe_print("=" * 50)
         safe_print("  ERROR: Failed to start !")
@@ -1157,14 +1287,16 @@ async def activate_season(request: Request, season_id: int):
 
 # ==================== EXE 启动入口 ====================
 if __name__ == "__main__":
+    _crash_log("init: entering startup block")
+
     import socket
 
     def safe_print(msg, fallback=""):
         try:
-            print(msg)
+            print(msg, flush=True)
         except (UnicodeEncodeError, UnicodeDecodeError):
             if fallback:
-                print(fallback)
+                print(fallback, flush=True)
 
     def get_local_ip():
         try:
@@ -1199,27 +1331,31 @@ if __name__ == "__main__":
         safe_print("  Press Ctrl+C to stop")
         safe_print("=" * 50)
 
+        _crash_log("init: importing uvicorn...")
         import uvicorn
+        _crash_log(f"init: uvicorn.run(app, host={host}, port={port})")
         uvicorn.run(app, host=host, port=port, log_level="warning")
 
     except KeyboardInterrupt:
         safe_print("\n  Stopped.")
     except Exception as e:
+        _crash_log(f"FATAL: {e}")
+        _crash_log(_tb.format_exc())
         safe_print("")
         safe_print("=" * 50)
-        safe_print("  ERROR: Failed to start !")
+        safe_print("  ERROR: Failed to start!")
         safe_print("=" * 50)
         safe_print(f"  {e}")
         try:
-            import traceback
-            tb = traceback.format_exc()
+            tb = _tb.format_exc()
             safe_print(tb)
         except Exception:
-            print(f"\n  Error: {e}")
+            safe_print(str(e))
         safe_print("-" * 50)
         safe_print("  Tips:")
         safe_print("  1. Port 8000 may be in use")
         safe_print("  2. Antivirus may be blocking")
+        safe_print("  3. See crash.log for details")
         safe_print("=" * 50)
         exit_code = 1
     finally:
@@ -1230,6 +1366,9 @@ if __name__ == "__main__":
                 pass
 
     sys.exit(exit_code)
+
+
+
 
 
 @app.put("/api/seasons/{season_id}/end")
@@ -1245,14 +1384,16 @@ async def end_season(request: Request, season_id: int):
 
 # ==================== EXE 启动入口 ====================
 if __name__ == "__main__":
+    _crash_log("init: entering startup block")
+
     import socket
 
     def safe_print(msg, fallback=""):
         try:
-            print(msg)
+            print(msg, flush=True)
         except (UnicodeEncodeError, UnicodeDecodeError):
             if fallback:
-                print(fallback)
+                print(fallback, flush=True)
 
     def get_local_ip():
         try:
@@ -1287,27 +1428,31 @@ if __name__ == "__main__":
         safe_print("  Press Ctrl+C to stop")
         safe_print("=" * 50)
 
+        _crash_log("init: importing uvicorn...")
         import uvicorn
+        _crash_log(f"init: uvicorn.run(app, host={host}, port={port})")
         uvicorn.run(app, host=host, port=port, log_level="warning")
 
     except KeyboardInterrupt:
         safe_print("\n  Stopped.")
     except Exception as e:
+        _crash_log(f"FATAL: {e}")
+        _crash_log(_tb.format_exc())
         safe_print("")
         safe_print("=" * 50)
-        safe_print("  ERROR: Failed to start !")
+        safe_print("  ERROR: Failed to start!")
         safe_print("=" * 50)
         safe_print(f"  {e}")
         try:
-            import traceback
-            tb = traceback.format_exc()
+            tb = _tb.format_exc()
             safe_print(tb)
         except Exception:
-            print(f"\n  Error: {e}")
+            safe_print(str(e))
         safe_print("-" * 50)
         safe_print("  Tips:")
         safe_print("  1. Port 8000 may be in use")
         safe_print("  2. Antivirus may be blocking")
+        safe_print("  3. See crash.log for details")
         safe_print("=" * 50)
         exit_code = 1
     finally:
@@ -1318,6 +1463,9 @@ if __name__ == "__main__":
                 pass
 
     sys.exit(exit_code)
+
+
+
 
 
 # ==================== 成就 API ====================
@@ -1341,14 +1489,16 @@ async def create_achievement(request: Request):
 
 # ==================== EXE 启动入口 ====================
 if __name__ == "__main__":
+    _crash_log("init: entering startup block")
+
     import socket
 
     def safe_print(msg, fallback=""):
         try:
-            print(msg)
+            print(msg, flush=True)
         except (UnicodeEncodeError, UnicodeDecodeError):
             if fallback:
-                print(fallback)
+                print(fallback, flush=True)
 
     def get_local_ip():
         try:
@@ -1383,27 +1533,31 @@ if __name__ == "__main__":
         safe_print("  Press Ctrl+C to stop")
         safe_print("=" * 50)
 
+        _crash_log("init: importing uvicorn...")
         import uvicorn
+        _crash_log(f"init: uvicorn.run(app, host={host}, port={port})")
         uvicorn.run(app, host=host, port=port, log_level="warning")
 
     except KeyboardInterrupt:
         safe_print("\n  Stopped.")
     except Exception as e:
+        _crash_log(f"FATAL: {e}")
+        _crash_log(_tb.format_exc())
         safe_print("")
         safe_print("=" * 50)
-        safe_print("  ERROR: Failed to start !")
+        safe_print("  ERROR: Failed to start!")
         safe_print("=" * 50)
         safe_print(f"  {e}")
         try:
-            import traceback
-            tb = traceback.format_exc()
+            tb = _tb.format_exc()
             safe_print(tb)
         except Exception:
-            print(f"\n  Error: {e}")
+            safe_print(str(e))
         safe_print("-" * 50)
         safe_print("  Tips:")
         safe_print("  1. Port 8000 may be in use")
         safe_print("  2. Antivirus may be blocking")
+        safe_print("  3. See crash.log for details")
         safe_print("=" * 50)
         exit_code = 1
     finally:
@@ -1414,6 +1568,9 @@ if __name__ == "__main__":
                 pass
 
     sys.exit(exit_code)
+
+
+
 
 
 @app.delete("/api/achievements/{ach_id}")
@@ -1434,14 +1591,16 @@ async def delete_achievement(request: Request, ach_id: int):
 
 # ==================== EXE 启动入口 ====================
 if __name__ == "__main__":
+    _crash_log("init: entering startup block")
+
     import socket
 
     def safe_print(msg, fallback=""):
         try:
-            print(msg)
+            print(msg, flush=True)
         except (UnicodeEncodeError, UnicodeDecodeError):
             if fallback:
-                print(fallback)
+                print(fallback, flush=True)
 
     def get_local_ip():
         try:
@@ -1476,27 +1635,31 @@ if __name__ == "__main__":
         safe_print("  Press Ctrl+C to stop")
         safe_print("=" * 50)
 
+        _crash_log("init: importing uvicorn...")
         import uvicorn
+        _crash_log(f"init: uvicorn.run(app, host={host}, port={port})")
         uvicorn.run(app, host=host, port=port, log_level="warning")
 
     except KeyboardInterrupt:
         safe_print("\n  Stopped.")
     except Exception as e:
+        _crash_log(f"FATAL: {e}")
+        _crash_log(_tb.format_exc())
         safe_print("")
         safe_print("=" * 50)
-        safe_print("  ERROR: Failed to start !")
+        safe_print("  ERROR: Failed to start!")
         safe_print("=" * 50)
         safe_print(f"  {e}")
         try:
-            import traceback
-            tb = traceback.format_exc()
+            tb = _tb.format_exc()
             safe_print(tb)
         except Exception:
-            print(f"\n  Error: {e}")
+            safe_print(str(e))
         safe_print("-" * 50)
         safe_print("  Tips:")
         safe_print("  1. Port 8000 may be in use")
         safe_print("  2. Antivirus may be blocking")
+        safe_print("  3. See crash.log for details")
         safe_print("=" * 50)
         exit_code = 1
     finally:
@@ -1507,6 +1670,9 @@ if __name__ == "__main__":
                 pass
 
     sys.exit(exit_code)
+
+
+
 
 
 @app.get("/api/achievements/progress/{player_id}")
@@ -1685,45 +1851,18 @@ async def delete_auto_backup(request: Request, filename: str):
     return {"success": True}
 
 
-# ==================== 角色 API ====================
-
-@app.post("/api/roles")
-async def create_role(request: Request):
-    require_admin(request)
-    data = await request.json()
-    conn = get_db()
-    cursor = conn.cursor()
-    cursor.execute(
-        "INSERT INTO roles (game_id, name, team, score_bonus) VALUES (?, ?, ?, ?)",
-        (data["game_id"], data["name"], data["team"], data.get("score_bonus", 0))
-    )
-    rid = cursor.lastrowid
-    conn.commit()
-    conn.close()
-    return {"success": True, "id": rid}
-
-
-@app.delete("/api/roles/{role_id}")
-async def delete_role(request: Request, role_id: int):
-    require_admin(request)
-    conn = get_db()
-    cursor = conn.cursor()
-    cursor.execute("DELETE FROM roles WHERE id = ?", (role_id,))
-    conn.commit()
-    conn.close()
-    return {"success": True}
-
-
 # ==================== EXE 启动入口 ====================
 if __name__ == "__main__":
+    _crash_log("init: entering startup block")
+
     import socket
 
     def safe_print(msg, fallback=""):
         try:
-            print(msg)
+            print(msg, flush=True)
         except (UnicodeEncodeError, UnicodeDecodeError):
             if fallback:
-                print(fallback)
+                print(fallback, flush=True)
 
     def get_local_ip():
         try:
@@ -1758,27 +1897,31 @@ if __name__ == "__main__":
         safe_print("  Press Ctrl+C to stop")
         safe_print("=" * 50)
 
+        _crash_log("init: importing uvicorn...")
         import uvicorn
+        _crash_log(f"init: uvicorn.run(app, host={host}, port={port})")
         uvicorn.run(app, host=host, port=port, log_level="warning")
 
     except KeyboardInterrupt:
         safe_print("\n  Stopped.")
     except Exception as e:
+        _crash_log(f"FATAL: {e}")
+        _crash_log(_tb.format_exc())
         safe_print("")
         safe_print("=" * 50)
-        safe_print("  ERROR: Failed to start !")
+        safe_print("  ERROR: Failed to start!")
         safe_print("=" * 50)
         safe_print(f"  {e}")
         try:
-            import traceback
-            tb = traceback.format_exc()
+            tb = _tb.format_exc()
             safe_print(tb)
         except Exception:
-            print(f"\n  Error: {e}")
+            safe_print(str(e))
         safe_print("-" * 50)
         safe_print("  Tips:")
         safe_print("  1. Port 8000 may be in use")
         safe_print("  2. Antivirus may be blocking")
+        safe_print("  3. See crash.log for details")
         safe_print("=" * 50)
         exit_code = 1
     finally:
@@ -1789,6 +1932,122 @@ if __name__ == "__main__":
                 pass
 
     sys.exit(exit_code)
+
+
+
+# ==================== 角色 API ====================
+
+@app.post("/api/roles")
+async def create_role(request: Request):
+    require_admin(request)
+    data = await request.json()
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute(
+        "INSERT INTO roles (game_id, name, team, score_bonus) VALUES (?, ?, ?, ?)",
+        (data["game_id"], data["name"], data["team"], data.get("score_bonus", 0))
+    )
+    rid = cursor.lastrowid
+    conn.commit()
+    conn.close()
+    return {"success": True, "id": rid}
+
+
+@app.delete("/api/roles/{role_id}")
+async def delete_role(request: Request, role_id: int):
+    require_admin(request)
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM roles WHERE id = ?", (role_id,))
+    conn.commit()
+    conn.close()
+    return {"success": True}
+
+
+# ==================== EXE 启动入口 ====================
+if __name__ == "__main__":
+    _crash_log("init: entering startup block")
+
+    import socket
+
+    def safe_print(msg, fallback=""):
+        try:
+            print(msg, flush=True)
+        except (UnicodeEncodeError, UnicodeDecodeError):
+            if fallback:
+                print(fallback, flush=True)
+
+    def get_local_ip():
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.connect(("8.8.8.8", 80))
+            ip = s.getsockname()[0]
+            s.close()
+            return ip
+        except Exception:
+            return "127.0.0.1"
+
+    exit_code = 0
+    try:
+        host = "0.0.0.0"
+        port = 8000
+        for i, arg in enumerate(sys.argv):
+            if arg == "--local":
+                host = "127.0.0.1"
+            elif arg == "-p" and i + 1 < len(sys.argv):
+                port = int(sys.argv[i + 1])
+
+        local_ip = get_local_ip()
+
+        safe_print("=" * 50)
+        safe_print("  Board Game Ranking System")
+        safe_print("=" * 50)
+        safe_print(f"  Local:    http://127.0.0.1:{port}")
+        safe_print(f"  Network:  http://{local_ip}:{port}")
+        safe_print(f"  Admin:    http://127.0.0.1:{port}/admin")
+        safe_print(f"  Account:  admin / admin123")
+        safe_print("-" * 50)
+        safe_print("  Press Ctrl+C to stop")
+        safe_print("=" * 50)
+
+        _crash_log("init: importing uvicorn...")
+        import uvicorn
+        _crash_log(f"init: uvicorn.run(app, host={host}, port={port})")
+        uvicorn.run(app, host=host, port=port, log_level="warning")
+
+    except KeyboardInterrupt:
+        safe_print("\n  Stopped.")
+    except Exception as e:
+        _crash_log(f"FATAL: {e}")
+        _crash_log(_tb.format_exc())
+        safe_print("")
+        safe_print("=" * 50)
+        safe_print("  ERROR: Failed to start!")
+        safe_print("=" * 50)
+        safe_print(f"  {e}")
+        try:
+            tb = _tb.format_exc()
+            safe_print(tb)
+        except Exception:
+            safe_print(str(e))
+        safe_print("-" * 50)
+        safe_print("  Tips:")
+        safe_print("  1. Port 8000 may be in use")
+        safe_print("  2. Antivirus may be blocking")
+        safe_print("  3. See crash.log for details")
+        safe_print("=" * 50)
+        exit_code = 1
+    finally:
+        if exit_code != 0:
+            try:
+                input("\n  Press Enter to exit...")
+            except (EOFError, KeyboardInterrupt):
+                pass
+
+    sys.exit(exit_code)
+
+
+
 
 
 # ==================== 导出 API ====================
@@ -2082,6 +2341,90 @@ async def delete_player(request: Request, player_id: int):
     return {"success": True}
 
 
+# ==================== EXE 启动入口 ====================
+if __name__ == "__main__":
+    _crash_log("init: entering startup block")
+
+    import socket
+
+    def safe_print(msg, fallback=""):
+        try:
+            print(msg, flush=True)
+        except (UnicodeEncodeError, UnicodeDecodeError):
+            if fallback:
+                print(fallback, flush=True)
+
+    def get_local_ip():
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.connect(("8.8.8.8", 80))
+            ip = s.getsockname()[0]
+            s.close()
+            return ip
+        except Exception:
+            return "127.0.0.1"
+
+    exit_code = 0
+    try:
+        host = "0.0.0.0"
+        port = 8000
+        for i, arg in enumerate(sys.argv):
+            if arg == "--local":
+                host = "127.0.0.1"
+            elif arg == "-p" and i + 1 < len(sys.argv):
+                port = int(sys.argv[i + 1])
+
+        local_ip = get_local_ip()
+
+        safe_print("=" * 50)
+        safe_print("  Board Game Ranking System")
+        safe_print("=" * 50)
+        safe_print(f"  Local:    http://127.0.0.1:{port}")
+        safe_print(f"  Network:  http://{local_ip}:{port}")
+        safe_print(f"  Admin:    http://127.0.0.1:{port}/admin")
+        safe_print(f"  Account:  admin / admin123")
+        safe_print("-" * 50)
+        safe_print("  Press Ctrl+C to stop")
+        safe_print("=" * 50)
+
+        _crash_log("init: importing uvicorn...")
+        import uvicorn
+        _crash_log(f"init: uvicorn.run(app, host={host}, port={port})")
+        uvicorn.run(app, host=host, port=port, log_level="warning")
+
+    except KeyboardInterrupt:
+        safe_print("\n  Stopped.")
+    except Exception as e:
+        _crash_log(f"FATAL: {e}")
+        _crash_log(_tb.format_exc())
+        safe_print("")
+        safe_print("=" * 50)
+        safe_print("  ERROR: Failed to start!")
+        safe_print("=" * 50)
+        safe_print(f"  {e}")
+        try:
+            tb = _tb.format_exc()
+            safe_print(tb)
+        except Exception:
+            safe_print(str(e))
+        safe_print("-" * 50)
+        safe_print("  Tips:")
+        safe_print("  1. Port 8000 may be in use")
+        safe_print("  2. Antivirus may be blocking")
+        safe_print("  3. See crash.log for details")
+        safe_print("=" * 50)
+        exit_code = 1
+    finally:
+        if exit_code != 0:
+            try:
+                input("\n  Press Enter to exit...")
+            except (EOFError, KeyboardInterrupt):
+                pass
+
+    sys.exit(exit_code)
+
+
+
 # ==================== 游戏 API ====================
 
 @app.get("/api/games")
@@ -2132,14 +2475,16 @@ async def update_game(request: Request, game_id: int):
 
 # ==================== EXE 启动入口 ====================
 if __name__ == "__main__":
+    _crash_log("init: entering startup block")
+
     import socket
 
     def safe_print(msg, fallback=""):
         try:
-            print(msg)
+            print(msg, flush=True)
         except (UnicodeEncodeError, UnicodeDecodeError):
             if fallback:
-                print(fallback)
+                print(fallback, flush=True)
 
     def get_local_ip():
         try:
@@ -2174,27 +2519,31 @@ if __name__ == "__main__":
         safe_print("  Press Ctrl+C to stop")
         safe_print("=" * 50)
 
+        _crash_log("init: importing uvicorn...")
         import uvicorn
+        _crash_log(f"init: uvicorn.run(app, host={host}, port={port})")
         uvicorn.run(app, host=host, port=port, log_level="warning")
 
     except KeyboardInterrupt:
         safe_print("\n  Stopped.")
     except Exception as e:
+        _crash_log(f"FATAL: {e}")
+        _crash_log(_tb.format_exc())
         safe_print("")
         safe_print("=" * 50)
-        safe_print("  ERROR: Failed to start !")
+        safe_print("  ERROR: Failed to start!")
         safe_print("=" * 50)
         safe_print(f"  {e}")
         try:
-            import traceback
-            tb = traceback.format_exc()
+            tb = _tb.format_exc()
             safe_print(tb)
         except Exception:
-            print(f"\n  Error: {e}")
+            safe_print(str(e))
         safe_print("-" * 50)
         safe_print("  Tips:")
         safe_print("  1. Port 8000 may be in use")
         safe_print("  2. Antivirus may be blocking")
+        safe_print("  3. See crash.log for details")
         safe_print("=" * 50)
         exit_code = 1
     finally:
@@ -2205,6 +2554,9 @@ if __name__ == "__main__":
                 pass
 
     sys.exit(exit_code)
+
+
+
 
 
 # ==================== 预设阵容 API ====================
@@ -2245,14 +2597,16 @@ async def delete_preset(request: Request, preset_id: int):
 
 # ==================== EXE 启动入口 ====================
 if __name__ == "__main__":
+    _crash_log("init: entering startup block")
+
     import socket
 
     def safe_print(msg, fallback=""):
         try:
-            print(msg)
+            print(msg, flush=True)
         except (UnicodeEncodeError, UnicodeDecodeError):
             if fallback:
-                print(fallback)
+                print(fallback, flush=True)
 
     def get_local_ip():
         try:
@@ -2287,27 +2641,31 @@ if __name__ == "__main__":
         safe_print("  Press Ctrl+C to stop")
         safe_print("=" * 50)
 
+        _crash_log("init: importing uvicorn...")
         import uvicorn
+        _crash_log(f"init: uvicorn.run(app, host={host}, port={port})")
         uvicorn.run(app, host=host, port=port, log_level="warning")
 
     except KeyboardInterrupt:
         safe_print("\n  Stopped.")
     except Exception as e:
+        _crash_log(f"FATAL: {e}")
+        _crash_log(_tb.format_exc())
         safe_print("")
         safe_print("=" * 50)
-        safe_print("  ERROR: Failed to start !")
+        safe_print("  ERROR: Failed to start!")
         safe_print("=" * 50)
         safe_print(f"  {e}")
         try:
-            import traceback
-            tb = traceback.format_exc()
+            tb = _tb.format_exc()
             safe_print(tb)
         except Exception:
-            print(f"\n  Error: {e}")
+            safe_print(str(e))
         safe_print("-" * 50)
         safe_print("  Tips:")
         safe_print("  1. Port 8000 may be in use")
         safe_print("  2. Antivirus may be blocking")
+        safe_print("  3. See crash.log for details")
         safe_print("=" * 50)
         exit_code = 1
     finally:
@@ -2318,6 +2676,9 @@ if __name__ == "__main__":
                 pass
 
     sys.exit(exit_code)
+
+
+
 
 
 # ==================== 操作加分 API ====================
@@ -2364,14 +2725,16 @@ async def delete_action(request: Request, action_id: int):
 
 # ==================== EXE 启动入口 ====================
 if __name__ == "__main__":
+    _crash_log("init: entering startup block")
+
     import socket
 
     def safe_print(msg, fallback=""):
         try:
-            print(msg)
+            print(msg, flush=True)
         except (UnicodeEncodeError, UnicodeDecodeError):
             if fallback:
-                print(fallback)
+                print(fallback, flush=True)
 
     def get_local_ip():
         try:
@@ -2406,27 +2769,31 @@ if __name__ == "__main__":
         safe_print("  Press Ctrl+C to stop")
         safe_print("=" * 50)
 
+        _crash_log("init: importing uvicorn...")
         import uvicorn
+        _crash_log(f"init: uvicorn.run(app, host={host}, port={port})")
         uvicorn.run(app, host=host, port=port, log_level="warning")
 
     except KeyboardInterrupt:
         safe_print("\n  Stopped.")
     except Exception as e:
+        _crash_log(f"FATAL: {e}")
+        _crash_log(_tb.format_exc())
         safe_print("")
         safe_print("=" * 50)
-        safe_print("  ERROR: Failed to start !")
+        safe_print("  ERROR: Failed to start!")
         safe_print("=" * 50)
         safe_print(f"  {e}")
         try:
-            import traceback
-            tb = traceback.format_exc()
+            tb = _tb.format_exc()
             safe_print(tb)
         except Exception:
-            print(f"\n  Error: {e}")
+            safe_print(str(e))
         safe_print("-" * 50)
         safe_print("  Tips:")
         safe_print("  1. Port 8000 may be in use")
         safe_print("  2. Antivirus may be blocking")
+        safe_print("  3. See crash.log for details")
         safe_print("=" * 50)
         exit_code = 1
     finally:
@@ -2437,6 +2804,9 @@ if __name__ == "__main__":
                 pass
 
     sys.exit(exit_code)
+
+
+
 
 
 # ==================== 自定义角色 API ====================
@@ -2489,14 +2859,16 @@ async def update_settings(request: Request):
 
 # ==================== EXE 启动入口 ====================
 if __name__ == "__main__":
+    _crash_log("init: entering startup block")
+
     import socket
 
     def safe_print(msg, fallback=""):
         try:
-            print(msg)
+            print(msg, flush=True)
         except (UnicodeEncodeError, UnicodeDecodeError):
             if fallback:
-                print(fallback)
+                print(fallback, flush=True)
 
     def get_local_ip():
         try:
@@ -2531,27 +2903,31 @@ if __name__ == "__main__":
         safe_print("  Press Ctrl+C to stop")
         safe_print("=" * 50)
 
+        _crash_log("init: importing uvicorn...")
         import uvicorn
+        _crash_log(f"init: uvicorn.run(app, host={host}, port={port})")
         uvicorn.run(app, host=host, port=port, log_level="warning")
 
     except KeyboardInterrupt:
         safe_print("\n  Stopped.")
     except Exception as e:
+        _crash_log(f"FATAL: {e}")
+        _crash_log(_tb.format_exc())
         safe_print("")
         safe_print("=" * 50)
-        safe_print("  ERROR: Failed to start !")
+        safe_print("  ERROR: Failed to start!")
         safe_print("=" * 50)
         safe_print(f"  {e}")
         try:
-            import traceback
-            tb = traceback.format_exc()
+            tb = _tb.format_exc()
             safe_print(tb)
         except Exception:
-            print(f"\n  Error: {e}")
+            safe_print(str(e))
         safe_print("-" * 50)
         safe_print("  Tips:")
         safe_print("  1. Port 8000 may be in use")
         safe_print("  2. Antivirus may be blocking")
+        safe_print("  3. See crash.log for details")
         safe_print("=" * 50)
         exit_code = 1
     finally:
@@ -2562,6 +2938,9 @@ if __name__ == "__main__":
                 pass
 
     sys.exit(exit_code)
+
+
+
 
 
 @app.put("/api/games/{game_id}/features")
@@ -2581,17 +2960,18 @@ async def update_game_features(request: Request, game_id: int):
 
 # ==================== EXE 启动入口 ====================
 if __name__ == "__main__":
-    import socket
+    _crash_log("init: entering startup block")
 
     def safe_print(msg, fallback=""):
         try:
-            print(msg)
+            print(msg, flush=True)
         except (UnicodeEncodeError, UnicodeDecodeError):
             if fallback:
-                print(fallback)
+                print(fallback, flush=True)
 
     def get_local_ip():
         try:
+            import socket
             s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             s.connect(("8.8.8.8", 80))
             ip = s.getsockname()[0]
@@ -2613,7 +2993,7 @@ if __name__ == "__main__":
         local_ip = get_local_ip()
 
         safe_print("=" * 50)
-        safe_print("  Board Game Ranking System")
+        safe_print("  Board Game Ranking System v1.0.2")
         safe_print("=" * 50)
         safe_print(f"  Local:    http://127.0.0.1:{port}")
         safe_print(f"  Network:  http://{local_ip}:{port}")
@@ -2623,27 +3003,30 @@ if __name__ == "__main__":
         safe_print("  Press Ctrl+C to stop")
         safe_print("=" * 50)
 
+        _crash_log("init: importing uvicorn...")
         import uvicorn
+        _crash_log(f"init: uvicorn.run(app, host={host}, port={port})")
         uvicorn.run(app, host=host, port=port, log_level="warning")
 
     except KeyboardInterrupt:
         safe_print("\n  Stopped.")
     except Exception as e:
+        _crash_log(f"FATAL: {e}")
+        _crash_log(_tb.format_exc())
         safe_print("")
         safe_print("=" * 50)
-        safe_print("  ERROR: Failed to start !")
+        safe_print("  ERROR: Failed to start!")
         safe_print("=" * 50)
         safe_print(f"  {e}")
         try:
-            import traceback
-            tb = traceback.format_exc()
-            safe_print(tb)
+            safe_print(_tb.format_exc())
         except Exception:
-            print(f"\n  Error: {e}")
+            safe_print(str(e))
         safe_print("-" * 50)
         safe_print("  Tips:")
         safe_print("  1. Port 8000 may be in use")
         safe_print("  2. Antivirus may be blocking")
+        safe_print("  3. See crash.log in EXE directory")
         safe_print("=" * 50)
         exit_code = 1
     finally:
@@ -2658,14 +3041,16 @@ if __name__ == "__main__":
 
 # ==================== EXE 启动入口 ====================
 if __name__ == "__main__":
+    _crash_log("init: entering startup block")
+
     import socket
 
     def safe_print(msg, fallback=""):
         try:
-            print(msg)
+            print(msg, flush=True)
         except (UnicodeEncodeError, UnicodeDecodeError):
             if fallback:
-                print(fallback)
+                print(fallback, flush=True)
 
     def get_local_ip():
         try:
@@ -2700,27 +3085,31 @@ if __name__ == "__main__":
         safe_print("  Press Ctrl+C to stop")
         safe_print("=" * 50)
 
+        _crash_log("init: importing uvicorn...")
         import uvicorn
+        _crash_log(f"init: uvicorn.run(app, host={host}, port={port})")
         uvicorn.run(app, host=host, port=port, log_level="warning")
 
     except KeyboardInterrupt:
         safe_print("\n  Stopped.")
     except Exception as e:
+        _crash_log(f"FATAL: {e}")
+        _crash_log(_tb.format_exc())
         safe_print("")
         safe_print("=" * 50)
-        safe_print("  ERROR: Failed to start !")
+        safe_print("  ERROR: Failed to start!")
         safe_print("=" * 50)
         safe_print(f"  {e}")
         try:
-            import traceback
-            tb = traceback.format_exc()
+            tb = _tb.format_exc()
             safe_print(tb)
         except Exception:
-            print(f"\n  Error: {e}")
+            safe_print(str(e))
         safe_print("-" * 50)
         safe_print("  Tips:")
         safe_print("  1. Port 8000 may be in use")
         safe_print("  2. Antivirus may be blocking")
+        safe_print("  3. See crash.log for details")
         safe_print("=" * 50)
         exit_code = 1
     finally:
@@ -2731,3 +3120,8 @@ if __name__ == "__main__":
                 pass
 
     sys.exit(exit_code)
+
+
+
+
+
